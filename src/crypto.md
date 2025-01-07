@@ -455,14 +455,22 @@ Digital certificates are issued by an authority, which everyone in the conversat
 
 Of course, all of this comes down to how well the properties in the certificate really identify the person, and the rigor of the CA's validation methods. If the certificate only contains an email address, and Bob doesn't already know Alice's email address, the certificate doesn't really help Bob know for sure that it came from Alice. But if it contains a domain name, or a legal name plus postal address, that might be sufficient for Bob to know it's really Alice.
 
-One place you can see digital certificates in action is your web browser when it's using HTTPS to talk with a particular domain. If you're using Chrome, the following screenshots show you how to view the certificate returned from google.com (screenshots taken in Jan 2025):
+One place you can see digital certificates in action is your web browser when it's using HTTPS to talk with a particular domain. If you're using Chrome, click on the site information icon next to the URL in the address bar (screenshots from January 2025):
 
-![click on the site information icon next to the URL in the address bar](img/chrome-view-cert-1.png)
+![screenshot of site information icon in the Chrome address bar](img/chrome-view-cert-1.png)
 
-![then click on the "Connection is secure" link](img/chrome-view-cert-1.png)
+Then click on the "Connection is secure" link:
 
-![then click on the "Certificate is valid" link](img/chrome-view-cert-1.png)
+![screenshot of "Connection is secure" link](img/chrome-view-cert-2.png)
 
-![you should then see details about the google.com certificate](img/google-cert.png)
+Then click on the "Certificate is valid" link:
 
+![screenshot of "Certificate is valid" link](img/chrome-view-cert-3.png)
+
+You should then see the details of the google.com certificate:
+
+![screenshot of google.com certificate details](img/google-cert.png)
+
+> [!TIP]
+> Other browsers have similar UI for viewing a site's certificate. If you can't find it, ask your favorite LLM `how do I view a site's certificate in {BROWSER}` replacing `{BROWSER}` with the name of your browser.
 
