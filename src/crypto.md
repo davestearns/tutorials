@@ -444,7 +444,7 @@ The way we handle this on the Internet is through _digital certificates_, which 
 
 Digital certificates are issued by an authority, which everyone in the conversation decides to trust. Alice gets hers using a process like this:
 
-1. Alice uses her private key to sign a file called a Certificate Signing Request (CSR). This file has a specific format in which she can specify her public key and some properties about herself that the authority will validate. Typically these are properties that would help others identify her, such as her email address, a domain name she controls, or legal name and mailing address.
+1. Alice uses her private key to sign a file called a Certificate Signing Request (CSR). This file has a specific format in which she can specify her public key and some properties about herself that the authority will validate. Typically these are properties that would help others identify her, such as her legal name, email address, and maybe mailing address.
 1. Alice sends the CSR to a/the trusted Certificate Authority (CA).
 1. The CA validates the properties in the CSR. How they do this depends on the properties--e.g., validating an email address can be done by simply sending it a message with a link Alice must click, but validating a legal name and address might require a background/credit check plus sending letters through the post.
 1. Once the CA validates all the properties, the CA creates and signs a certificate. The certificate contains all the info from the CSR (including Alice's public key), as well as similar info about the CA (including their public key). It also typically includes a date range during which the certificate should be considered valid.
@@ -455,7 +455,7 @@ Digital certificates are issued by an authority, which everyone in the conversat
 
 Of course, all of this comes down to how well the properties in the certificate really identify the person, and the rigor of the CA's validation methods. If the certificate only contains an email address, and Bob doesn't already know Alice's email address, the certificate doesn't really help Bob know for sure that it came from Alice. But if it contains a domain name, or a legal name plus postal address, that might be sufficient for Bob to know it's really Alice.
 
-One place you can see digital certificates in action is your web browser when it's using HTTPS to talk with a particular domain. If you're using Chrome, click on the site information icon next to the URL in the address bar (screenshots from January 2025):
+In practice, certificates are mostly issued to organizations and Internet domains to enable HTTPS web sites. You can see these in action in your web browser when it's using HTTPS to talk with a particular domain. If you're using Chrome, click on the site information icon next to the URL in the address bar (screenshots from January 2025):
 
 ![screenshot of site information icon in the Chrome address bar](img/chrome-view-cert-1.png)
 
