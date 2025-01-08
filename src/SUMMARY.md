@@ -1,7 +1,8 @@
 # Summary
 
-[Introduction](./index.md)
+[Introduction](index.md)
 
 # Tutorials
 
-- [Intro to Cryptography](./crypto.md)
+- [System Building Blocks](building-blocks.md)
+- [Intro to Cryptography](crypto.md)
