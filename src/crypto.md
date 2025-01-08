@@ -140,7 +140,7 @@ echo $ENCRYPTED | openssl enc -d -aes-256-cbc -pbkdf2 -base64
 
 You'll be prompted for your secret password again, and if you type it correctly, you should see the original "secret message" text as the output! If you mistype the password, or forget it, openssl will refuse to decrypt the message.
 
-Most of the time we want to encrypt whole files instead of short strings, and openssl can do that too. Omit the `echo` part and instead use `-in` to specify the input plaintext file, and `-out` to specify the output encrypted ciphertext file:
+Most of the time we want to encrypt whole files instead of short strings, and openssl can do that too. Omit the `echo` part and instead use `-in` to specify the input plaintext file, and `-out` to specify the path where you want it to write the output ciphertext:
 
 ```bash
 openssl enc -aes-256-cbc -pbkdf2 -in secret_file.pdf -out secret_file.enc
@@ -244,7 +244,7 @@ This is why asymmetric encryption is mostly used to agree upon a share symmetric
 
 One way to do this is to use asymmetric encryption to encrypt and share a symmetric key--that is, the message we encrypt/decrypt is actually just a symmetric key to use for subsequent messages. Symmetric keys are typically quite small, so the length limitations of asymmetric encryption are not an issue.
 
-But it turns out that asymmetric keys also have a nifty mathematical property that allows Alice and Bob to derive the same shared secret (i.e., a password) without ever needing to send it in encrypted form across the public network. The algorithm is called Diffie-Hellman Key Exchange, and this video provides a fantastic visual explanation:
+But it turns out that asymmetric keys also have a nifty mathematical property that allows Alice and Bob to derive the same shared secret (i.e., a password for deriving a symmetric key) without ever needing to send it in encrypted form across the public network. The algorithm is called Diffie-Hellman Key Exchange, and this video provides a fantastic visual explanation:
 
 [![link to YouTube video describing Diffie-Hellman Key Exchange](https://img.youtube.com/vi/YEBfamv-_do/0.jpg)](https://youtu.be/YEBfamv-_do?si=0oXncq05o_nL2wDG)
 
@@ -281,8 +281,8 @@ Notice that each person is using their _own_ private key, but the _other person'
 If you did it correctly, the two shared secret files should be identical. They are binary files, so you can't read them directly, but you can view them encoded in hexadecimal using the `xxd` utility:
 
 ```bash
-xxd -p -c 256 alice_shared_secret.key
-xxd -p -c 256 bob_shared_secret.key
+xxd -p alice_shared_secret.key
+xxd -p bob_shared_secret.key
 ```
 
 You can also use the `diff` utility to compare them byte-by-byte:
