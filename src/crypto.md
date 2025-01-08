@@ -121,7 +121,7 @@ Let's break that down:
 1. `openssl` is that same Swiss Army knife of cryptographic algorithms we used before.
 1. `enc` is the "encryption" sub-command of `openssl`, which is confusingly used to both encrypt **and** decrypt (we add `-d` when decrypting).
 1. `-aes-256-cbc` tells `openssl` to use the [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) symmetric encryption algorithm, with a 256-bit key, in [cipher block chaining mode](https://docs.anchormydata.com/docs/what-is-aes-256-cbc). You don't need to understand all the particulars of the algorithm and its modes at this point, but there are [several different modes](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation) AES can use when encrypting data larger than its relatively small block size (16 bytes). The right one depends on your goals. CGM is often recommended these days, but it's unfortunately [not supported on the default MacOS version anymore](https://superuser.com/questions/1824093/command-line-decryption-of-aes-256-gcm-no-longer-working-after-openssl-updated). So we'll use CBC for this tutorial.
-1. `-pbkdf2` tells `openssl` to derive the symmetric key from the password you enter. `PBKDF` is an acronym for ["password-based key derivation function,"](https://en.wikipedia.org/wiki/PBKDF2) which is a kind of hashing function that can deterministically generate a symmetric encryption key of a particular size (256 bits in this case) from a password of arbitrary length. This allows you to keep the key (or what its derived from) in your head instead of a file on disk.
+1. `-pbkdf2` tells `openssl` to derive the symmetric key from the password you enter. `PBKDF` is an acronym for ["password-based key derivation function,"](https://en.wikipedia.org/wiki/PBKDF2) which is a kind of hashing function that can deterministically generate a symmetric encryption key of a particular size (256 bits in this case) from a password of arbitrary length. This allows you to keep the source of the key in your head instead of a file on disk.
 1. `-base64` tells `openssl` to encode the binary ciphertext into [base 64](https://en.wikipedia.org/wiki/Base64), which is safe to paste into a text-based communication medium like email (or print at the command line).
 
 After entering your password, you won't see any output, because it was assigned to the `ENCRYPTED` environment variable. But we can print that to the terminal using this command:
@@ -132,7 +132,7 @@ echo $ENCRYPTED
 
 It should look like a bunch of random characters, numbers, and symbols. Without the key or the password it was derived from, an attacker can't read it.
 
-You could now copy/paste and send that to anyone who knows your secret password, and they can decrypt it on the other side. Let's simulate that now by feeding the `ENCRYPTED` value back into `openssl` in decryption mode (add `-d`):
+You could now copy/paste/send that to anyone who knows your secret password, and they can decrypt it on the other side. Let's simulate that now by feeding the `ENCRYPTED` value back into `openssl` in decryption mode (add `-d`):
 
 ```bash
 echo $ENCRYPTED | openssl enc -d -aes-256-cbc -pbkdf2 -base64
@@ -140,13 +140,13 @@ echo $ENCRYPTED | openssl enc -d -aes-256-cbc -pbkdf2 -base64
 
 You'll be prompted for your secret password again, and if you type it correctly, you should see the original "secret message" text as the output! If you mistype the password, or forget it, openssl will refuse to decrypt the message.
 
-Most of the time we want to encrypt whole files instead of short strings, and openssl can do that too:
+Most of the time we want to encrypt whole files instead of short strings, and openssl can do that too. Omit the `echo` part and instead use `-in` to specify the input plaintext file, and `-out` to specify the output encrypted ciphertext file:
 
 ```bash
 openssl enc -aes-256-cbc -pbkdf2 -in secret_file.pdf -out secret_file.enc
 ```
 
-In this case, we left off the `echo` part and instead use `-in` to specify the input plaintext file, and `-out` to specify the output encrypted ciphertext file. You can name the output file anything you want, but it's common to use something like an `.enc` extension to indicate that it's encrypted.
+You can name the output file anything you want, but it's common to use something like an `.enc` extension to indicate that it's encrypted.
 
 To decrypt, just add the `-d` switch again, and this time specify the encrypted file path as the `-in` argument, and the path where you want the decrypted file written as the `-out` argument. If that output path already exists, the file will just be overwritten, so use a new name:
 
@@ -162,7 +162,7 @@ Symmetric encryption is quite fast and very secure if (and only if) you can keep
 * When a single machine needs to both encrypt and decrypt files. For example, [FileVault on MacOS uses AES](https://support.apple.com/guide/deployment/intro-to-filevault-dep82064ec40/web) to encrypt files written to your hard drive.
 * When a small group of trusted machines in a private cloud need to decrypt messages encrypted by one of the other machines. Most cloud providers offer a [secrets management service](https://aws.amazon.com/secrets-manager/) that enables machines in the same virtual private cloud to securely access shared secrets like symmetric encryption keys. 
 
-But we often find ourselves in situations where we have two people (the fictional Alice and Bob) who want to send encrypted messages to each other across a public network without an attacker in the middle (Eve) intercepting and reading them. If Alice and Bob both know a particular symmetric key, no problem, but how do they decide on that key without sending it across the public network in a way that Eve can see? If Eve sees the key being passed, they can use it to read all the messages. Even worse, Eve could intercept the messages and replace them with messages of their own: if those are encrypted with the same key, Alice and Bob would never know the difference!
+But we often find ourselves in situations where we have two people (the fictional Alice and Bob) who want to send encrypted messages to each other across a public network without an attacker in the middle (Eve) intercepting and reading them. If Alice and Bob both know a particular symmetric key, no problem, but how do they agree on that key without sending it across the public network in a way that Eve can see? If Eve sees the key being passed, they can use it to read all the messages. Even worse, Eve could intercept the messages and replace them with messages of their own: if those are encrypted with the same key, Alice and Bob would never know the difference!
 
 In these situations, we need to turn to _asymmetric encryption_.
 
