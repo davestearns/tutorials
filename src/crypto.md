@@ -2,13 +2,13 @@
 
 If you want to design, build, or manage software services on the Internet, you need to understand at least the basics of cryptography. You don't need to fully understand the math--few people do! And you should never implement the core algorithms yourself--instead always use the canonical library for your chosen programming language. But you do need to understand what these core algorithms are, what they can and cannot do, and how to combine them to create secure systems.
 
-In this tutorial I'll explain the basics of cryptographic hashing, symmetric and asymmetric encryption, digital signatures, and certificates. We will use these algorithms in subsequent tutorials, so take the time to read carefully and understand them. 
+In this tutorial I'll explain the basics of cryptographic hashing, symmetric and asymmetric encryption, digital signatures, and digital certificates. We will use these algorithms in subsequent tutorials, so take the time to read carefully and understand their guarantees and weaknesses.
 
 This tutorial won't magically turn you into a security engineer--that takes years of diligent study, and _a lot_ more detail. But it will help you _talk_ to a security engineer and understand (most of) what they are saying to you. It will also set you up to understand lots of related topics like HTTPS/TLS, authenticated sessions, e-signing, and blockchains.
 
 ## Cryptographic Hashing
 
-The first family of algorithms to understand are cryptographic hashing functions. These are one-way functions that turn arbitrarily-sized binary input data into a relatively small, fixed-sized output value, known as a 'hash' or a 'digest'.
+The first family of algorithms to understand are cryptographic hashing functions. These are one-way functions that turn arbitrarily-sized input data into a relatively small, fixed-sized output value, known as a 'hash' or a 'digest'.
 
 What makes these algorithms incredibly useful are the guarantees they make about that output hash value:
 
@@ -18,14 +18,15 @@ What makes these algorithms incredibly useful are the guarantees they make about
 
 These guarantees are why people often refer to cryptographic hashes as "fingerprints" of their input data. Our fingerprints are relatively small compared to our entire bodies, but they remain unique (enough) to identify us. Similarly, a cryptographic hashing algorithm can reduce gigabytes of data to a relatively short fingerprint hash that is both deterministic and collision-resistant.
 
-To get a feel for these algorithms, let's generate some hashes as the command line. If you're on MacOS or Linux, open your terminal application. If you're on Windows, use the [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/about) so you have access to all the same commands. Then run this at your command line:
+To get a feel for these algorithms, let's generate some hashes at the command line. If you're on MacOS or Linux, open your terminal application. If you're on Windows, use the [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/about) so you have access to all the same commands. Then run this at your command line:
 
 ```bash
 echo 'data to hash' | openssl dgst -sha256
 ```
 
 > [!TIP]
-> If you get an error saying "command not found," you need to install `openssl`. Go to your favorite LLM and ask it `how do I install the openssl command line utility on {OS}` replacing `{OS}` with the name of your operating system.
+> If you get an error saying "command not found," you need to install `openssl`. Go to your favorite LLM and ask it `how do I install the openssl command line utility on {OS}` replacing `{OS}` with the name of your operating system. If you get some other kind of error, check your version by running `openssl version`--if it's lower than 3.0, you probably need to upgrade.
+> If you are totally new to the command line, you might want to go through [this interactive tutorial](https://linuxjourney.com/lesson/the-shell) to learn the basics.
 
 For those who are maybe new to the command line, let's break that down a bit:
 
