@@ -1,4 +1,4 @@
-# Cryptography
+# Intro to Cryptography
 
 If you want to design, build, or manage software services on the Internet, you need to understand at least the basics of cryptography. You don't need to fully understand the math--few people do! And you should never implement the core algorithms yourself--instead always use the canonical library for your chosen programming language. But you do need to understand what these core algorithms are, what they can and cannot do, and how to combine them to create secure systems.
 
