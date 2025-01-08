@@ -396,6 +396,7 @@ To verify the signature, use the `dgst` sub-command again, but pass the signer's
 openssl dgst -sha256 -verify alice_public.pem -signature document.sig document.txt
 ```
 
+If the document hasn't changed, the signature should be valid. Try changing document.txt and running just the verify command again--it should then fail because the document is now different than when it was signed!
 
 ### Symmetric Signatures
 
@@ -419,7 +420,7 @@ verify(📄, 🔏):
 	does #️⃣ == hash(📄) ?
 ```
 
-These kinds of signatures are often called "Message Authentication Codes" or MACs, as they ensure the data is authentic and not modified since it was signed. The most popular symmetric signature algorithm is known as [HMAC](https://en.wikipedia.org/wiki/HMAC), which actually mixes the symmetric key into the data as it hashes it.
+These kinds of signatures are often called "Message Authentication Codes" or MACs, as they ensure the data is authentic and not modified since it was signed. The most popular symmetric signature algorithm is known as [HMAC](https://en.wikipedia.org/wiki/HMAC), which is actually a special kind of hashing function that mixes the symmetric key into the data as it hashes it.
 
 Let's get a feel for how this works by using `openssl` to create an HMAC signature for the same `document.txt` file we were using earlier. First we need to create a secret symmetric key. This can be just some random bytes that we generate using `openssl` (let's do 32 bytes = 256 bits, encoded in hexadecimal):
 
@@ -435,8 +436,8 @@ openssl mac -digest SHA256 -macopt hexkey:$SIGNING_KEY -in document.txt HMAC
 
 Breaking that down:
 
-* `mac` is the `openssl` sub-command for generating and verifying message authentication code (aka symmetric signatures).
-* `-digest SHA256` tells `openssl` to use the SHA-256 algorithm when hashing (you can alternatively use SHA512 if you wish).
+* `mac` is the `openssl` sub-command for generating and verifying message authentication codes (aka symmetric signatures).
+* `-digest SHA256` tells `openssl` to use the SHA-256 algorithm when hashing (you can alternatively use `SHA512` if you wish).
 * `-macopt hexkey:$SIGNING_KEY` specifies the signing key to use, which we provide via the `SIGNING_KEY` environment variable that was set when we ran the `openssl rand` command earlier.
 * `-in document.txt` names the file to sign.
 * `HMAC` specifies we want to use the HMAC symmetric signature algorithm.
