@@ -293,17 +293,23 @@ diff -q alice_shared_secret.key bob_shared_secret.key
 
 If you don't see any output, the files are identical! If you do see differences, then double-check what you ran against the commands above and try again.
 
-Alice and Bob can now use this shared secret as the "password" to the `openssl enc` sub-command (which we used earlier), and let `openssl` derive a new symmetric key from it. Since Eve never saw that secret go across the public network, not even in encrypted form, Eve has no chance to decrypting those messages.
+Alice and Bob can now use this shared secret as the "password" to the `openssl enc` sub-command (which we used earlier), and let `openssl` derive a new symmetric key from it. 
 
-Given a sufficiently large number of these encrypted messages, however, Eve _might_ be able to crack the key using clever [cryptanalysis](https://en.wikipedia.org/wiki/Cryptanalysis), so it's a good idea for Alice and Bob to periodically rotate the shared secret and key. This is done using a protocol like this:
+```bash
+openssl enc -aes-256-cbc -pbkdf2 -pass file:alice_shared_secret.key -in secret_file.pdf -out secret_file.enc
+```
+
+Since Eve never saw that secret go across the public network, not even in encrypted form, Eve has no chance to decrypting those messages.
+
+But given a sufficiently large number of these encrypted messages, Eve _might_ be able to crack the key using clever [cryptanalysis](https://en.wikipedia.org/wiki/Cryptanalysis), so it's a good idea for Alice and Bob to periodically rotate the shared secret and key. This is done using a protocol like this:
 
 1. Let's say that Alice and Bob are currently encrypting their messages with symmetric key `K`. After some number of messages encrypted by `K` they decide to rotate keys.
 1. Both Alice and Bob generate new asymmetric key pairs.
-1. Alice and Bob encrypt only their new _public_ keys using `K` and send them to each other. They of course keep their corresponding private keys secret.
+1. Alice and Bob encrypt only their new _public_ keys using `K` and send them to each other. They of course keep their corresponding private keys secret. Although public keys are not secret, encrypting them with `K` autenticates them: i.e., it helps Alice and Bob know that the keys weren't intercepted and replaced.
 1. Alice and Bob decrypt each other's new public keys using `K` and derive a new shared secret using Diffie-Hellman with their new private key and the other person's new public key.
 1. Alice and Bob now use this new shared secret as the password for deriving the new symmetric key `K1`, which they use to encrypt all subsequent messages, until they decide to rotate keys again.
 
-Diffie-Hellman is very clever, but it's not authenticated, so we have the same issue we had with asymmetric encryption: how does Bob know for sure that he has Alice's real public key, and not an attackers? The answer here is the same as it was before. Bob must get Alice's public key from a trusted source, which requires _digital certificates_. But to understand those, we first need to understand _digital signatures_.
+Diffie-Hellman is very clever, but it's not authenticated, so we have the same issue we had with asymmetric encryption: how does Bob know at the start that he has Alice's real public key, and not an attackers? The answer here is the same as it was before. Bob must get Alice's public key initially from a trusted source, which requires _digital certificates_. But to understand those, we first need to understand _digital signatures_.
 
 ## Digital Signatures
 
