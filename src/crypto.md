@@ -232,7 +232,7 @@ Bob(🔏🤐):
 
 Of course, all of this assumes that the public key Bob has is really Alice's public key, and not Eve's public key pretending to be Alice's. Typically Bob will get Alice's key from some trusted source: for example her web site using an HTTPS connection, which is encrypted using a _digital certificate_ that attests to her true legal identity. We'll discuss those in the [Digital Certificates](#digital-certificates) section later in this tutorial.
 
-## Deriving a Symmetric Key from Public Keys
+### Deriving a Symmetric Key from Public Keys
 
 Asymmetric encryption is pretty magical, but it has a few downsides:
 
@@ -453,7 +453,31 @@ Digital certificates are issued by an authority, which everyone in the conversat
 1. Bob can verify that the identity properties in the certificate match what he knows about Alice.
 1. If everything checks out, Bob can be confident that the public key in the certificate really came from Alice.
 
-Of course, all of this comes down to how well the properties in the certificate really identify the person, and the rigor of the CA's validation methods. If the certificate only contains an email address, and Bob doesn't already know Alice's email address, the certificate doesn't really help Bob know for sure that it came from Alice. But if it contains a domain name, or a legal name plus postal address, that might be sufficient for Bob to know it's really Alice.
+Of course, all of this comes down to how well the properties in the certificate really identify the person, and the rigor of the CA's validation methods. If the certificate only contains an email address, and Bob doesn't already know Alice's email address, the certificate doesn't really help Bob know for sure that it came from Alice. But if it contains a verified domain name that is owned by Alice, that might be sufficient for Bob to know it's the real Alice.
+
+To get a feel for this process, let's use the private key we created for Alice above to create a CSR. You'll be prompted for the various properties, and you can enter whatever you want since we won't be sending this to a real CA:
+
+```bash
+openssl req -new -key alice_private.pem -out certificate.csr
+```
+
+If you want to view that generated CSR in its structured form, use this command:
+
+```bash
+openssl req -in certificate.csr -text -noout
+```
+
+If you want to generate a real certificate from this CSR, we can create what is known as a "self-signed" certificate. This is the equivalent of a passport written in crayon. Applications won't trust it by default, but you can often override this and force the application to use it just for testing purposes:
+
+```bash
+openssl x509 -req -days 365 -in certificate.csr -signkey alice_private.pem -out certificate.crt
+```
+
+To view that generated certificate in its structured form, use this command:
+
+```bash
+openssl x509 -in certificate.crt -text -noout
+```
 
 In practice, certificates are mostly issued to organizations and Internet domains to enable HTTPS web sites. You can see these in action in your web browser when it's using HTTPS to talk with a particular domain. If you're using Chrome, click on the site information icon next to the URL in the address bar (screenshots from January 2025):
 
@@ -473,4 +497,8 @@ You should then see the details of the google.com certificate:
 
 > [!TIP]
 > Other browsers have similar UI for viewing a site's certificate. If you can't find it, ask your favorite LLM `how do I view a site's certificate in {BROWSER}` replacing `{BROWSER}` with the name of your browser.
+
+You might be wondering, "if both parties need to trust the CA, when did I decide to trust the CA that issued the google.com certificate?" Well, you did when you decided to install and run your particular browser, which comes with a set of trusted CA certificates pre-installed. If the certificate for a given web site was signed by one of those CAs, your browser will automatically trust it. Administrators within a given company can also add their own certificate to browsers installed on the company's machines so they can act as a local CA within the company.
+
+These pre-installed CAs are also called "root CAs" because they can delegate some of their issuing authority to other companies. A digital certificate can actually contain a whole tree of certificates, and as long as the root of that tree is one of the pre-installed trusted root CAs, the browser will trust it.
 
