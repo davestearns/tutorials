@@ -1,9 +1,13 @@
 [book]
-title = "Dave's Tutorials"
+title = "Systems Engineering Tutorials"
 authors = ["Dave Stearns"]
-description = "Tutorials for courses I teach"
+description = "Tutorials for systems engineering courses"
 language = "en"
 multilingual = false
 src = "src"
 
 [preprocessor.alerts]
+
+[output.html]
+git-repository-url = "https://github.com/davestearns/tutorials"
+smart-punctuation = true
