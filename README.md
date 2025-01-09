@@ -1,3 +1,4 @@
-# Course Tutorials
+# Systems Engineering Tutorials
 
-View the tutorials as [a book](https://davestearns.github.io/tutorials/)!
+![Read The Book link](https://img.shields.io/badge/Read%20The%20Book-blue)
+
