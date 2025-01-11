@@ -1,7 +1,7 @@
 [book]
 title = "Systems Engineering Tutorials"
 authors = ["Dave Stearns"]
-description = "Tutorials for systems engineering courses"
+description = "Tutorials for systems engineering courses taught by Dave Stearns"
 language = "en"
 multilingual = false
 src = "src"
