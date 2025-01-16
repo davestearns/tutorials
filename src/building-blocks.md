@@ -18,7 +18,7 @@ Load balancers perform several jobs that are critical to building highly-scalabl
 * **Blocking and Rate Limiting:** Load balancers also protect your downstream HTTP servers from attack and abuse. They are specifically designed to handle massive amounts of requests, and can be configured to block particular sources of traffic. They can also limit the number of requests a given clients can make during a given time duration, so that particular clients can't hog all the system resources.
 * **Caching:** If your downstream HTTP servers mostly return static content that rarely changes, you can configure your load balancers to cache and replay responses for a period of time. This reduces the load on your downstream servers.
 * **Request/Response Logging:** Load balancers can be configured to log some data about each request and response so that you can analyze your traffic, or diagnose problems reported by your customers.
-* **[HTTPS](https://en.wikipedia.org/wiki/HTTPS) Termination:** If your load balancer and downstream servers are all inside a trusted private network, and you don't require secure/encrypted connections between your own servers, you can configure your load balancer to talk HTTPS with the Internet, but HTTP with your downstream servers. This used to be a common configuration when CPU speeds made HTTPS much slower than HTTP, but these days (in 2025) it's common to just use HTTPS everywhere.
+* **[HTTPS](https://en.wikipedia.org/wiki/HTTPS) Termination:** If your load balancer and downstream servers are all inside a trusted private network, and you don't require secure/encrypted connections between your own servers, you can configure your load balancer to talk HTTPS with the Internet, but HTTP with your downstream servers. This used to be a common configuration when CPU speeds made HTTPS much slower than HTTP, but these days (in 2025) it's common to just [use HTTPS everywhere](https://letsencrypt.org/).
 
 Load balancers are sometimes referred to as **reverse proxies** because they essentially do the reverse of a client-side proxy. Instead of collecting and forwarding requests from multiple clients within an organization's internal network, load balancers forward requests to one or more target servers within your system's network.
 
@@ -73,13 +73,7 @@ In these cases we use the bi-directional **WebSockets** protocol instead, which 
 
 To get a WebSocket connection, clients actually start by talking HTTP and then requesting an "upgrade" to WebSockets. This allows a server to support both HTTP **and** WebSocket conversations over the same port number, which is handy when clients are behind a firewall that only allows traffic to the Internet over the customary web port numbers (80 for HTTP and 443 for encrypted HTTPS).
 
-You might be wondering, why we don't just always use WebSockets instead of HTTP? If a WebSocket server can do everything an HTTP server can do and more, why use basic HTTP at all? There are two primary reasons:
-
-* **Historical:** HTTP existed since the early 1990s, but WebSockets didn't get specified until 2008, and it took a few years for all the web browsers and web server frameworks to add support for them, and for consumers to upgrade their browsers.
-* **HTTP/2:** HTTP itself has evolved over the years and the current versions natively support bi-directional communication. Custom client applications can use this capability instead of WebSockets, but web browsers don't yet expose this feature to JavaScript running in a web page, so we still need to use WebSockets in that context.
-* **Harder Programming Model:** WebSocket servers can send unsolicited messages to clients, which means those clients need to be ready to receive and process them. This can be a harder programming model to support than simple request/response, where clients only need to handle responses to their specific requests. This is certainly true for scripts, but [GUI](https://en.wikipedia.org/wiki/Graphical_user_interface) clients built using a [reactive programming style](https://en.wikipedia.org/wiki/Reactive_programming) can handle WebSockets more easily.
-* **Missed Messages:** Network connections are unreliable, and clients might disappear at any time. If your server wants to send a notification to a client, but the client is unreachable at the moment, you have to decide how to handle that. In some cases you can simply discard the message and move on (e.g., time-sensitive notification that won't matter later), but in other cases your server will need to resend the message when the client reconnects. This adds some complexity to your system but [event queues](#event-queues) can make this easier to manage.
-* **Scalability Concerns:** Some systems use WebSockets to synchronize multiple clients with common state maintained within the WebSocket server itself (e.g., multi-player games). This requires clients to communicate with a specific WebSocket server, which defeats the benefits of a load balancer, which makes it harder to scale the system. But if you use WebSockets merely to broadcast notifications coming out of a shared event queue, they can scale just as well as HTTP.
+Once connected, both the server and the client can send messages to each other at any time. But either side may disconnect at any time as well, so your client and server code must be written to handle this. Typically we use [queues](#queues) and [consumers](#queue-consumers) in front of a WebSocket connection to ensure that all messages eventually get delivered to the other side. But if speed is more important than guaranteed delivered (e.g., multi-player games), write directly to the WebSocket and discard messages that fail to send.
 
 ## Databases
 
@@ -111,23 +105,68 @@ Since all secondaries eventually get a copy of the same data, reads are often ro
 
 In many kinds of systems, requests that read data far outnumber requests that write new data. We call these **read-heavy** systems as opposed to **write-heavy** ones. Read-heavy systems often benefit from **caches**, which are very fast, in-memory, non-durable key/value stores. They are typically used to hold on to data that takes a while to gather or calculate, but will likely be requested again in the near future. For example, social media sites often use caches to hold on to the contents of your feed so that they can render it more quickly the next time you view it. Popular open-source caches include [redis](https://redis.io/) and [memcached](https://memcached.org/).
 
+![diagram showing HTTP servers talking to a cache and a database](img/database-cache.png)
+
 Using a cache is about making a tradeoff between performance and data freshness. Since the data in the cache is a snapshot of data from your persistent database (or some other service), that data might have changed since you put the snapshot in the cache. But if you know that data doesn't tend to change very often, or if your application can tolerate slightly stale data in some circumstances, reading from your cache instead of the original source will not only be faster, it will also reduce load on that source.
 
 The main tuning parameter for this tradeoff is the **Time to Live (TTL)** setting for each value you put in the cache. This is the time duration for which the cache will hold on to the data. After the TTL expires, the cache will "forget" the data, and your application will have to read a fresh version again from the original source. A short TTL will improve data freshness but decrease performance, while a long TTL will do the opposite.
 
 If your HTTP server tries to load some data from the cache but it's no longer there (known as a **cache miss**), getting that data will actually be _slower_ than if you didn't have a cache at all, as your server had to make an additional network round-trip to the cache before going to the source. This is why it's never free to just add a cache. You should only add one when you are confident that it will improve your average system performance. Analyze your system metrics before and after the introduction of a cache, and if it doesn't result in a noticeable improvement, remove it.
 
-## Buckets and Block Storage
+## Buckets
 
+Databases are fantastic for small structured data records, but they are a poor choice for large binary content like documents, pictures, video, or music. These kinds of files are often referred to as **BLOBs** or "Binary Large Objects" and the best home for them are buckets.
 
-## Event Queues
+A **bucket** is like a file system that is hosted by your cloud provider. You can write files to a particular file path, read them given that path, and list paths given a common prefix. Examples include [AWS S3](https://aws.amazon.com/s3/), [Google Cloud Storage](https://cloud.google.com/storage/docs/introduction), and [Azure Blob Storage](https://azure.microsoft.com/en-us/products/storage/blobs). 
 
-## Event Consumers
+Buckets are designed to store large numbers of potentially huge files, but most lack the ability to store structured metadata about those files, so we often combine them with databases. For example, a social media system might store a structured record about your post in a database, but put the pictures or videos included in your post into a bucket.
+
+Most cloud providers give you the option of replicating bucket files between geographic regions, and obtaining region-specific URLs for files, so that your clients can quickly download them. For example, your system might write files initially to a bucket in a USA west coast data center, but those are quickly replicated to other regions, allowing a client in Asia to download the file from a much closer data center.
+
+![diagram showing multi-region buckets](img/buckets.png)
+
+## Queues
+
+When your HTTP server processes a request, it will likely need to read or write some data synchronously (i.e., before responding to the client), but some work could be done asynchronously. For example, when a customer signs up for a new account, the HTTP server must write a new record in the accounts database, but sending a confirmation or welcome email could be done later. To ensure this task gets done, we typically use a queue.
+
+A **queue** is a special kind of database that tracks an ordered list of transient records, which are often called **messages**. Your HTTP server (or any system component) can **publish** new messages to the end of the queue, and other components **consume** those messages from the head of the queue, processing them in some way (e.g., send an email). If there are multiple consumers, queues can be configured to deliver each message to the first available consumer (job queue model), or each message to _all_ consumers (broadcast model). Some queues will remove messages after consumers acknowledge successful processing, while others make consumers say where in the queue they would like to start reading (e.g., after the last message the consumer successfully processed).
+
+![diagram of message queue and consumer](img/queue.png)
+
+Another common use of a queue is as a source for notifications that a WebSocket server should send to clients. For example, when a user makes a new posts to a social media system, the HTTP server processing that request will write the post to the database (and maybe attached media files to a bucket), and then publish a message about the post to a queue. The WebSocket servers then consume those messages from the queue, forwarding each message to all connected clients. This allows clients to immediately display the new post without having to ask the server for it.
+
+Many queues will let you define multiple **topics** within the same server, which allows you to have multiple independent streams of messages. Different consumers can read from different topics: for example, you might define one topic for "new accounts" and another for "password resets" and have different consumers dedicated to each.
+
+The most sophisticated queues also support running in clusters, similar to the database clusters discussed earlier. This allows the queue to remain available even when one of the servers goes down, or needs to be upgraded. It can also ensure durability by replicating new messages to a majority of the secondaries before responding to the publisher.
+
+Common examples of open-source self-hosted queues are [Kafka](https://kafka.apache.org/) and [RabbitMQ](https://www.rabbitmq.com/). Cloud providers also offer hosted versions of these products, or their own queuing solutions, such as [AWS MSK](https://aws.amazon.com/msk/) or [AWS SQS](https://aws.amazon.com/sqs/).
 
 ## Periodic Jobs
 
+So far all the system components we've discussed run continuously and react to things like synchronous requests or an asynchronous messages published to a queue. But in many systems we need other components that just run periodically, on a schedule. For example, payment systems need to generate clearing files of all approved transactions at least once a day and send them to the payment network. Or a system with an ML model might want to retrain that model once a week based on new observations.
+
+These **periodic jobs** are just scripts that get executed by a scheduler. They start, run to completion, and exit. In between runs, nothing is executing except for the scheduler.
+
+The schedulers primary job is to run jobs at the appropriate times, but most schedulers also record information about each run, including detailed log messages written by jobs as they execute. This allows operators to view whether jobs encountered errors, and diagnose the cause.
+
+Examples of periodic job schedulers range from the simple yet tried and true [cron](https://en.wikipedia.org/wiki/Cron) to the very sophisticated and resilient [Temporal](https://temporal.io/).
+
 ## ML Models
 
-## Consensus Services
+Many systems these days also use Machine Learning (ML) models to make predictions about the data they are processing, or the actions their users will likely take next. For example, a social media system might use ML models to predict tags for new images, or to screen new posts for malicious content.
 
-## Content Delivery Networks (CDNs)
+Sometimes these models can be run in-process with the main API servers, but it's more common to host these in their own internal API server that are then called by either the main API servers or a message queue consumer. This is especially useful when you want to test new versions of a model: a small portion of requests can be routed to the new model, and its predictions can be compared to those made by the older model for the other requests. If the distributions of predictions is not what you expect, you can quickly switch back to the previous version without needing to update the callers.
+
+![diagram of ML model server with multiple model versions](img/ml-model-server.png)
+
+## Metrics and Logs
+
+Unlike GUI clients, server-side components are pretty invisible on their own: you can make a request and observe the response, but you can't really see the requests made by others or how well they are being processed. To make our system **observable** we publish metrics and logs from all the components. These are sent to, or collected by, other components that let us view these metrics on dashboard charts, or query the logs.
+
+The most popular open-source metrics solution these days is [Prometheus](https://prometheus.io/), which periodically gathers metrics from all your servers, aggregates and monitors them, and provides a query API to dashboard clients like [Grafana](https://grafana.com/). When metrics stray outside your established normal bounds, Prometheus can send alerts to your team via email, Slack, or [PagerDuty](https://www.pagerduty.com/).
+
+Metrics can include machine-level things like CPU and memory usage, or API-level things like the percentage of error responses or the request latency distribution. When these metrics go out of tolerance, it's likely a sign that something bad is happening, and an operator might need to intervene to keep the system running properly.
+
+Log messages are typically written by a server to its standard output stream, and that can be read by various logging services. The most popular these days is [Splunk](https://www.splunk.com/), which provides a very sophisticated query language. API servers typically write log lines about every request they process, and every error they encounter, so that operators can get detailed information about what is happening and what went wrong.
+
+## Consensus Services
