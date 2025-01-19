@@ -139,9 +139,9 @@ Examples of periodic job schedulers range from the simple yet tried and true [cr
 
 ## ML Models
 
-Many systems these days also use Machine Learning (ML) models to make predictions about the data they are processing, or the actions their users will likely take next. For example, a social media system might use ML models to predict tags for new images, or to screen new posts for malicious content.
+Many systems these days also use Machine Learning (ML) models to make predictions about the data they are processing, or the actions their users will likely take next. For example, a social media system might use ML models to predict tags for new images, or to screen new posts for malicious content. A payment system might use them to predict the probability of fraud, or the likelihood it will be declined.
 
-Sometimes these models can be run in-process with the main API servers, but it's more common to host these in their own internal API server that are then called by either the main API servers or a message queue consumer. This is especially useful when you want to test new versions of a model: a small portion of requests can be routed to the new model, and its predictions can be compared to those made by the older model for the other requests. If the distributions of predictions is not what you expect, you can quickly switch back to the previous version without needing to update the callers.
+Sometimes these models can be run in-process with the main API servers, but it's more common to host these in their own API server that are then called by either the main API servers or a message queue consumer. This is especially useful when you want to test new versions of a model: a small portion of requests can be routed to the new model, and its predictions can be compared to those made by the older model for the other requests. If the distributions of predictions is not what you expect, you can quickly switch back to the previous version without needing to update the callers.
 
 ![diagram of ML model server with multiple model versions](img/ml-model-server.png)
 
@@ -155,4 +155,6 @@ Metrics can include machine-level things like CPU and memory usage, or API-level
 
 Log messages are typically written by a server to its standard output stream, and that can be read by various logging services. The most popular these days is [Splunk](https://www.splunk.com/), which provides a very sophisticated query language. API servers typically write log lines about every request they process, and every error they encounter, so that operators can get detailed information about what is happening and what went wrong.
 
-## Consensus Services
+## Conclusion
+
+Most systems you use every day are comprised of these basic building-blocks. Now that you know what they are and what to use them for, we can combine them to produce just about any sort of system we want to build!
