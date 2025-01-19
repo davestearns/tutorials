@@ -1,6 +1,4 @@
-# Summary
-
-[Introduction](index.md)
+# Table of Contents
 
 # Tutorials
 
