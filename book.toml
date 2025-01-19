@@ -1,9 +1,18 @@
 [book]
-title = "Dave's Tutorials"
+title = "Systems Engineering Tutorials"
 authors = ["Dave Stearns"]
-description = "Tutorials for courses I teach"
+description = "Tutorials for systems engineering courses taught by Dave Stearns"
 language = "en"
 multilingual = false
 src = "src"
 
+[output.html]
+git-repository-url = "https://github.com/davestearns/tutorials"
+smart-punctuation = true
+additional-css = ["src/css/last-changed.css"]
+
 [preprocessor.alerts]
+
+[preprocessor.last-changed]
+command = "mdbook-last-changed"
+renderer = ["html"]
