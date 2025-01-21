@@ -61,7 +61,7 @@ When a request is made to one of your APIs, it is routed to one of these shared 
 
 All of this potential delay is known as the **cold start problem**. It results in unusually high latency at seemingly random times--one request might take a few milliseconds, but an identical subsequent request might take several seconds, even though your code might have executed just as quickly.
 
-But the good news is that you are only charged for the CPU and resources used by your code while it was _actually running_. If your API gets only a few requests per-day, you only pay for those two short invocations, not the rest of the time when the HTTP server was process other requests for other people.
+But the good news is that you are only charged for the CPU and resources used by your code while it was _actually running_. If your API gets only a few requests per-day, you only pay for those few short invocations, not the rest of the time when the HTTP server was process other requests for other people.
 
 The [economics](https://www.bbva.com/en/innovation/economics-of-serverless/) of serverless functions, combined with this cold start problem, imply that serverless functions can be a good choice for APIs that are used infrequently or sporadically. But if you are expecting many requests a second, at a more or less constant rate, and consistent performance really matters, then a continuously-running server is typically a better option.
 
