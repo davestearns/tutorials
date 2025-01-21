@@ -41,7 +41,7 @@ Load balancers forward requests to one or more **HTTP servers**. These are simpl
 
 What makes them HTTP servers in particular is that the requests and responses adhere to the [Hypertext Transfer Protocol (HTTP)](http.md) standard. This is a relatively simple request/response protocol, so it's quite easy to support. Nearly every programming language has built-in or library frameworks for building HTTP servers.
 
-By default, HTTP is not [encrypted]((crypto.md#encryption)), but we can add encryption by getting a [digital certificate](crypto.md#digital-certificates) and supporting **HTTPS**, which stands for "HTTP Secure". The core protocol remains the same, but the messages sent back and forth are encrypted using **Transport Layer Security (TLS)**, and clients can use the digital certificate to verify that they are really talking to the server they think they are talking to.
+By default, HTTP is not [encrypted](crypto.md#encryption)), but we can add encryption by getting a [digital certificate](crypto.md#digital-certificates) and supporting **HTTPS**, which stands for "HTTP Secure". The core protocol remains the same, but the messages sent back and forth are encrypted using **Transport Layer Security (TLS)**, and clients can use the digital certificate to verify that they are really talking to the server they think they are talking to.
 
 Some HTTP servers are really just glorified file servers. Clients can request files from a specific directory on the server's disk, and in some cases, the server might allow clients to update those files as well. These files are typically those that comprise the content of web pages: HTML, CSS, various image and video formats, and JavaScript.
 
