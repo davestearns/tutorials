@@ -51,6 +51,20 @@ This decoupling is very powerful: it allows the same HTTP server to support many
 
 Because these kinds of HTTP servers expose a programming interface to applications, as opposed to files on disk, they are often referred to as [**API servers**](api-servers.md). Strictly speaking, they are "HTTP API servers" because they speak HTTP and not some other networking protocol, but HTTP is such a default choice these days that we typically leave off the "HTTP" part.
 
+## "Serverless" Functions
+
+In a cloud computing environment (AWS, Azure, Google Cloud, etc.), API servers are usually deployed as a continuously-running virtual machine with a fixed amount of CPU and RAM. You pay for these machines as long as they are running, regardless of whether they are receiving requests, so they are like always leaving the lights on in a room--fine if people are always coming and going, but a bit of a waste if the room isn't used very often.
+
+If your API is only used sporadically, you can often save money by turning them into so-called "serverless" functions. Essentially, the cloud provider operates a very large fleet of shared HTTP servers for you, each of which may contain a copy of your code, written as a simple handler function--that is, a function that accepts a parsed request as input, and returns whatever you want written as the response.
+
+When a request is made to one of your APIs, it is routed to one of these shared HTTP servers. Since these servers are used by _everyone_, they don't have a copy of your code on them by default. Instead, a given server must download your code the first time it receives a request for your API. If your function is written in an interpreted or JIT-compiled language such as Python, JavaScript, Ruby, or even Java, the language runtime may also need to do some first-run initialization before it can start actually running your code.
+
+All of this potential delay is known as the **cold start problem**. It results in unusually high latency at seemingly random times--one request might take a few milliseconds, but an identical subsequent request might take several seconds, even though your code might have executed just as quickly.
+
+But the good news is that you are only charged for the CPU and resources used by your code while it was _actually running_. If your API gets only a few requests per-day, you only pay for those two short invocations, not the rest of the time when the HTTP server was process other requests for other people.
+
+The [economics](https://www.bbva.com/en/innovation/economics-of-serverless/) of serverless functions, combined with this cold start problem, imply that serverless functions can be a good choice for APIs that are used infrequently or sporadically. But if you are expecting many requests a second, at a more or less constant rate, and consistent performance really matters, then a continuously-running server is typically a better option.
+
 ## WebSocket Servers
 
 Although HTTP is built on top of lower-level network sockets, it remains a very simple request/response protocol. Clients can make requests to servers, and the servers can respond, but the server can't tell the client about something without the client asking about it first. This is fine when your system only needs to answer questions posed by clients, but what if your system also needs to notify those clients about something they haven't asked about yet?
