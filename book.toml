@@ -10,6 +10,7 @@ src = "src"
 git-repository-url = "https://github.com/davestearns/tutorials"
 smart-punctuation = true
 additional-css = ["src/css/last-changed.css"]
+site-url = "/tutorials/"
 
 [preprocessor.alerts]
 
