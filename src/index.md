@@ -3,7 +3,7 @@
 > [!CAUTION]
 > **The world doesn't need another "Hello, World!" tutorial.**
 
-You know the ones I mean: those articles that promise to teach you in ten minutes how to build a web server in whatever the trendy programming language is this week. You copy and paste some code (typically all in just one file) and, viola! You have a web server running on your laptop that replies to every request with a simple greeting.
+You know the ones I mean: those articles that promise to teach you in ten minutes how to build a web server in whatever the trendy programming language is this week. You copy and paste some code (typically all in just one file) and, voilà! You have a web server running on your laptop that replies to every request with a simple greeting.
 
 These tutorials can get you started, but they also leave you with a false sense of accomplishment. You've learned practically nothing about building a real system. You're left at the edge of a cliff, wondering how to:
 
