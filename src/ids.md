@@ -145,10 +145,6 @@ def new_id(num_random_bits=64, alphabet=DEFAULT_ALPHABET):
     you will need depending on the number of IDs you need to generate per-nanosecond.
     """
     ns_since_epoch = time.monotonic_ns()
-
-    # This generates a cryptographically random value, which is harder to predict,
-    # but is slower to generate. If you need better performance and don't care
-    # about being cryptographically random, use the pseudorandom generator instead.
     random_value = secrets.randbelow(2**num_random_bits)
 
     binary_id = (ns_since_epoch << num_random_bits) | random_value
@@ -156,8 +152,8 @@ def new_id(num_random_bits=64, alphabet=DEFAULT_ALPHABET):
     alphabet_len = len(alphabet)
     encoded_id = ""
     while binary_id > 0:
-        encoded_id = alphabet[binary_id % alphabet_len] + encoded_id
-        binary_id //= alphabet_len
+        binary_id, remainder = divmod(binary_id, alphabet_len)
+        encoded_id = alphabet[remainder] + encoded_id
 
     return encoded_id
 ```
