@@ -1,6 +1,6 @@
 # Introduction
 
-**The world doesn't need another "Hello, World!" tutorial.**
+The world doesn't need another "Hello, World!" tutorial.
 
 You know the ones I mean: those articles that promise to teach you in ten minutes how to build a web server in whatever the trendy programming language is this week. You copy and paste some code (typically all in just one file) and, voilà! You have a web server running on your laptop that replies to every request with a simple greeting.
 
