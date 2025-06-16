@@ -41,7 +41,7 @@ Load balancers forward requests to one or more **HTTP servers**. These are simpl
 
 What makes them HTTP servers in particular is that the requests and responses adhere to the [Hypertext Transfer Protocol (HTTP)](http.md) standard. This is a relatively simple request/response protocol, so it's quite easy to support. Nearly every programming language has built-in or library frameworks for building HTTP servers.
 
-By default, HTTP is not [encrypted](crypto.md#encryption)), but we can add encryption by getting a [digital certificate](crypto.md#digital-certificates) and supporting **HTTPS**, which stands for "HTTP Secure". The core protocol remains the same, but the messages sent back and forth are encrypted using **Transport Layer Security (TLS)**, and clients can use the digital certificate to verify that they are really talking to the server they think they are talking to.
+By default, HTTP is not [encrypted](crypto.md#encryption), but we can add encryption by getting a [digital certificate](crypto.md#digital-certificates) and supporting **HTTPS**, which stands for "HTTP Secure". The core protocol remains the same, but the messages sent back and forth are encrypted using **Transport Layer Security (TLS)**, and clients can use the digital certificate to verify that they are really talking to the server they think they are talking to.
 
 Some HTTP servers are really just glorified file servers. Clients can request files from a specific directory on the server's disk, and in some cases, the server might allow clients to update those files as well. These files are typically those that comprise the content of web pages: HTML, CSS, various image and video formats, and JavaScript.
 
@@ -61,7 +61,7 @@ When a request is made to one of your APIs, it is routed to one of these shared 
 
 All of this potential delay is known as the **cold start problem**. It results in unusually high latency at seemingly random times--one request might take a few milliseconds, but an identical subsequent request might take several seconds, even though your code might have executed just as quickly.
 
-But the good news is that you are only charged for the CPU and resources used by your code while it was _actually running_. If your API gets only a few requests per-day, you only pay for those few short invocations, not the rest of the time when the HTTP server was process other requests for other people.
+But the good news is that you are only charged for the CPU and resources used by your code while it was _actually running_. If your API gets only a few requests per-day, you only pay for those few short invocations, not the rest of the time when the HTTP server was processing other requests for other people.
 
 The [economics](https://www.bbva.com/en/innovation/economics-of-serverless/) of serverless functions, combined with this cold start problem, imply that serverless functions can be a good choice for APIs that are used infrequently or sporadically. But if you are expecting many requests a second, at a more or less constant rate, and consistent performance really matters, then a continuously-running server is typically a better option.
 
