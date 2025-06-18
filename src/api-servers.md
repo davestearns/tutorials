@@ -76,9 +76,11 @@ There are several reasons for this strict isolation:
 
 ### Persistence
 
-Since all the business logic is in the services layer, the only thing the persistence layer needs to do is talk to the various data stores. It's only real job is to read and write data.
+Since all the business logic is in the services layer, the only thing the persistence layer needs to do is talk to the various data stores. It's only real job is to read and write data, abstracting away the specific database engine the service happens to be using.
 
-If you use a relational database, you might be tempted to use an Object-Relational Mapping (ORM) library for this layer, but I would advise against it. ORMs are very heavy-weight, and tend to generate more problems than benefits. Because API requests are often very specific and focused, the SQL you end up writing is very simple and straightforward. If you're not comfortable with SQL, use a [document-oriented database](building-blocks.md#databases) instead.
+If you are using a relational database, a popular option for this persistence layer is an Object-Relational Mapping (ORM) library. ORMs provide a common programming interface over a wide variety of specific database engines, so your service code doesn't have to change if you decide to switch from one engine to another. They also let you define your schema in your application code, and generate scripts to create the corresponding tables and indexes in your database.
+
+That said, if you already know SQL and feel comfortable working with the lower-level database libraries, you can often achieve better performance by writing your own persistence layers. Services typically need only a basic set of read/write operations, so the required SQL usually remains quite simple, and you don't really need the complicated features that most ORMs provide.
 
 ## API Styles
 
