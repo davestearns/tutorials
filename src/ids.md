@@ -160,6 +160,8 @@ class BaseID(Generic[E]):
 
     def __init__(self):
         id_int = uuid.uuid7().int
+        # Use base36 encoding instead of base16 (hex) to 
+        # make the string ID shorter.
         encoded_chars = []
         while id_int > 0:
             id_int, remainder = divmod(id_int, self._ALPHABET_LEN)
@@ -199,7 +201,7 @@ class BaseID(Generic[E]):
         return obj
 ```
 
-This `BaseID` class is generic and can be used in any project. You can even package it into a reusable library if you wish. 
+This `BaseID` class is generic and can be used in any project. You can even package it into a reusable library if you wish. It uses a UUIDv7 for the unique ID portion, but encodes it using base36 instead of base16 to keep the string form shorter. The base36 alphabet is just the characters 0-9 and a-z, so the IDs remain case-insensitive and URL-safe.
 
 The generic type variable `E` must be an `Enum` that you use to define all your ID types and their respective prefixes. This ensures that all your types and prefixes are unique. For example:
 
