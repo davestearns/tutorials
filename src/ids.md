@@ -116,66 +116,95 @@ There are a few commonly-used implementations of this recipe that should be avai
 
 ## Separate ID Types
 
-Regardless of which implementation you use, it's a good idea to declare separate types for each of your IDs. For example, an `AccountID` should be a different type from a `SessionID`, and functions that expect an account ID should type that parameter as an `AccountID`. That way your type checker will catch any cases where you accidentally try to pass the wrong ID type.
+Regardless of which implementation you use, it's a good idea to declare separate types for each of your IDs. For example, an `AccountID` should be a different type from a `SessionID`. That way you can type parameters that expect `AccountID` values appropriately, and your tooling will flag any code that tries to pass the incorrect type.
 
-In Python it would look something like this:
+In Python you can support this using a base class like so:
 
 ```python
 import string
-from enum import Enum, unique
-from typing import TypeVar, Generic, Final
+from functools import total_ordering
+from enum import Enum
+from typing import TypeVar, Generic, Final, Type
 import uuid_utils as uuid
 
 E = TypeVar("E", bound=Enum)
+T = TypeVar("T", bound="BaseID")
 
 
+@total_ordering
 class BaseID(Generic[E]):
     """
-    Base class for all ID types. The generic type argument `E` should be an
-    `Enum` with members for each distinct ID type in your system. The Enum
-    member name can be descriptive (e.g., `ACCOUNT`) but the value should
-    be the prefix on all IDs of that type (e.g., 'acct'). Use the
-    `enum.unique` decorator to ensure the values remain unique.
+    Abstract base class for all ID types. The generic type argument `E`
+    should be an `Enum` with members for each distinct ID type in your
+    system. The Enum member name can be descriptive (e.g., `ACCOUNT`)
+    but the value should be the prefix on all IDs of that type
+    (e.g., 'acct'). Use the `enum.unique` decorator to ensure the values
+    remain unique.
 
     Encoded IDs will be in the form:
-        `{PREFIX.value}{PREFIX_SEPARATOR}{base36-encoded-id}`
+        `{PREFIX.value}_{base36-encoded-id}`
 
     The ID portion is currently a UUIDv7, so it is unique across space
     and time, but still provides a natural creation ordering.
     """
 
-    PREFIX: E
     PREFIX_SEPARATOR: Final = "_"
     _ALPHABET: Final = string.digits + string.ascii_lowercase
     _ALPHABET_LEN: Final = len(_ALPHABET)
 
-    _id: uuid.UUID
+    PREFIX: E
+    """
+    PREFIX must be set by derived classes to a member of the enum.
+    """
+    _id: str
 
     def __init__(self):
-        self._id = uuid.uuid7()
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}('{self.__str__()}')"
-
-    def __str__(self) -> str:
-        # Do a base36 encoding instead of the normal hex (base16)
-        # encoding to keep the resulting string shorter.
-        id_int = self._id.int
+        id_int = uuid.uuid7().int
         encoded_chars = []
         while id_int > 0:
             id_int, remainder = divmod(id_int, self._ALPHABET_LEN)
             encoded_chars.append(self._ALPHABET[remainder])
-        encoded_id = "".join(reversed(encoded_chars))
-        return f"{self.PREFIX.value}{self.PREFIX_SEPARATOR}{encoded_id}"
+        encoded = "".join(reversed(encoded_chars))
+        self._id = f"{self.PREFIX.value}{self.PREFIX_SEPARATOR}{encoded}"
 
-    def __eq__(self, other):
-        if isinstance(other, BaseID):
-            return str(self) == str(other)
-        return False
+    def __str__(self) -> str:
+        return self._id
 
-    def __hash__(self):
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}('{self.__str__()}')"
+
+    def __eq__(self, other) -> bool:
+        return self._id == other._id if type(self) is type(other) else False
+
+    def __lt__(self, other) -> bool:
+        return self._id < other._id if type(self) is type(other) else NotImplemented
+
+    def __hash__(self) -> int:
         return hash(str(self))
 
+    @classmethod
+    def parse(cls: Type[T], encoded_id: str) -> T:
+        """
+        Parses an encoded ID back into an instance of the ID class.
+        If the prefix on the encoded ID does not match the declared
+        PREFIX, this raises ValueError.
+        """
+        expected_prefix = cls.PREFIX.value + cls.PREFIX_SEPARATOR
+        if not encoded_id.startswith(expected_prefix):
+            raise ValueError(
+                f"Encoded ID {encoded_id} does not have expected prefix {cls.PREFIX}"
+            )
+        obj = cls.__new__(cls)
+        obj._id = encoded_id
+        return obj
+```
+
+This `BaseID` class is generic and can be used in any project. You can even package it into a reusable library if you wish. 
+
+The generic type variable `E` must be an `Enum` that you use to define all your ID types and their respective prefixes. This ensures that all your types and prefixes are unique. For example:
+
+```python
+from enum import Enum, unique
 
 @unique
 class IDType(Enum):
@@ -198,31 +227,49 @@ class IDType(Enum):
             if encoded_id.startswith(member.value + "_"):
                 return IDType(member)
         raise ValueError(f"Unknown prefix in ID: '{encoded_id}'")
+```
 
+As new ID types are added to your system, engineers must add a member to this enum. The `@unique` decorator ensures that the member values (the prefixes) remain unique.
 
-class SystemID(BaseID[IDType]):
-    """
-    Base class for all ID types in our system.
-    """
+To tie the `BaseID` and `IDType` classes together, declare a class that will act as the base class for all ID types in your system. Then you can declare multiple ID classes that extend that base class, which ensures they all use the same `IDType` enumeration. The only thing the ID classes need to set is their respective `PREFIX` enumeration member.
+
+```python
+class ModelID(BaseID[IDType]):
     pass
 
-
-class AccountID(SystemID):
+class AccountID(ModelID):
     PREFIX = IDType.ACCOUNT
 
 
-class SessionID(SystemID):
+class SessionID(ModelID):
     PREFIX = IDType.SESSION
 ```
 
-The `BaseID` class is generic and can be used in any project. You can even package it into a reusable library if you wish. It has a generic type argument that is bounded to an `Enum`, which your system should declare in a central place to keep your various ID types (and their prefixes) unique.
+Now you can create these various strongly-typed IDs, turn them into strings, and parse them back into concrete types:
 
-Within your system's code, you declare an `Enum` with members for each of your ID types. The value of each member is the prefix that will be appended to all IDs of that type. In this example, I've also declared a common base class for all IDs defined in the system (called `SystemID`), which extends `BaseID` specifying our `IDType` enum as the generic type argument.
+```python
+def dump_id(account_id: AccountID) -> None:
+    print(repr(account_id))
 
-After that, declaring a new ID type is as simple as:
+# Generate a new AccountID
+id = AccountID()
 
-1. Adding a new member to the `IDType` enum.
-1. Declaring a new class that extends `SystemID`.
-1. Set the `PREFIX` variable on the new class to the new `IDType` member.
+# Pass it to methods expecting an AccountID
+dump_id(id)
 
-You can then declare functions that accept specific ID types. If you accidentally try to pass the wrong ID type to those functions, your type-checker will flag the error right away!
+# This will generate a type checking error:
+# dump_id(SessionID())
+
+# Convert to a string
+encoded_id = str(id)
+
+# Get the IDType from the encoded ID
+assert IDType.from_id(encoded_id) == IDType.ACCOUNT
+
+# Parse the string back into an AccountID
+# (will raise ValueError if wrong prefix)
+parsed_id = AccountID.parse(encoded_id)
+
+assert type(parsed_id) is AccountID
+assert parsed_id == id
+```
