@@ -110,47 +110,119 @@ There are various formats and algorithms out there, but the common recipe is as 
 
 There are a few commonly-used implementations of this recipe that should be available via libraries in most programming languages:
 
-- **[UUIDv7](https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_7_(timestamp_and_random)):** A newer version of the [Universal Unique Identifier standard](https://en.wikipedia.org/wiki/Universally_unique_identifier), which uses a 48-bit timestamp with millisecond granularity, 74 randomly assigned bits, and a few hard-coded bits required by the standard to indicate format and versioning. Overall the ID is 128 bits long, which is typically encoded into a 36 character hexadecimal string (e.g., `01976b10-a45c-7786-988e-e261ef5d015b`). This is rather long to include in URLs, but the 74 random bits allows you to generate millions of IDs within the same millisecond, without central coordination, with an extremely low probability of collision.
+- **[UUIDv7](https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_7_(timestamp_and_random)):** A newer version of the [Universal Unique Identifier standard](https://en.wikipedia.org/wiki/Universally_unique_identifier), which uses a 48-bit timestamp with millisecond granularity, 74 randomly assigned bits, and a few hard-coded bits required by the standard to indicate format and versioning. Overall the ID is 128 bits long, which is typically encoded into a 36 character hexadecimal string (e.g., `01976b10-a45c-7786-988e-e261ef5d015b`). This is rather long to include in URLs, but you can implement a base36 encoding instead to make it shorter (see below).
 - **[Snowflake IDs](https://en.wikipedia.org/wiki/Snowflake_ID):** First developed at Twitter (before it was X), but now used by several social media platforms. It uses a 41-bit timestamp with millisecond granularity, plus a 10-bit pre-configured machine ID, plus a 12-bit machine-specific sequence number. The machine ID requires some central coordination (something has to tell each new API server what it's unique ID is), but it also reduces the number of bits needed to ensure uniqueness of IDs generated within the same millisecond. The machine ID plus the 12-bit sequence number allows you to generate 2^12 = 4,096 IDs per-machine per-millisecond. Because they use less bits, the encoded form is also shorter (e.g., `6820698575169822721`).
-- **[MongoDB Object IDs](https://www.mongodb.com/docs/manual/reference/method/ObjectId/):** Available in every MongoDB client library, these IDs use a 32 bit timestamp with second granularity, plus a 40 bit random value, plus a 24 bit machine-specific counter. The overall ID in binary form is 96 bits, and when encoded in hexadecimal the resulting string is 24 characters (e.g., `507f191e810c19729de860ea`).
+- **[MongoDB Object IDs](https://www.mongodb.com/docs/manual/reference/method/ObjectId/):** Available in every MongoDB/BSON library, these IDs use a 32 bit timestamp with second granularity, plus a 40 bit random value, plus a 24 bit machine-specific counter. The overall ID in binary form is 96 bits, and when encoded in hexadecimal the resulting string is 24 characters (e.g., `507f191e810c19729de860ea`).
 
-If you don't like any of those options, it's actually fairly easy to implement this recipe yourself, especially if your programming language can generate random bits and handle large integers. For example, an implementation in Python would look something like this:
+## Separate ID Types
+
+Regardless of which implementation you use, it's a good idea to declare separate types for each of your IDs. For example, an `AccountID` should be a different type from a `SessionID`, and functions that expect an account ID should type that parameter as an `AccountID`. That way your type checker will catch any cases where you accidentally try to pass the wrong ID type.
+
+In Python it would look something like this:
 
 ```python
-import time
-import secrets
 import string
+from enum import Enum, unique
+from typing import TypeVar, Generic, Final
+import uuid_utils as uuid
 
-DEFAULT_ALPHABET = string.digits + string.ascii_lowercase
+E = TypeVar("E", bound=Enum)
 
 
-def new_id(num_random_bits=32, alphabet=DEFAULT_ALPHABET):
+class BaseID(Generic[E]):
     """
-    Returns a unique ID consisting of nanoseconds since Unix epoch (Jan 1, 1970 UTC)
-    followed by a cryptographically secure random value, encoded to a string using the
-    provided alphabet.
+    Base class for all ID types. The generic type argument `E` should be an
+    `Enum` with members for each distinct ID type in your system. The Enum
+    member name can be descriptive (e.g., `ACCOUNT`) but the value should
+    be the prefix on all IDs of that type (e.g., 'acct'). Use the
+    `enum.unique` decorator to ensure the values remain unique.
 
-    The number of random bits determines how many IDs you can safely generate within
-    the same nanosecond. Use a birthday paradox calculator to estimate how many bits
-    you will need depending on the number of IDs you need to generate per-nanosecond.
+    Encoded IDs will be in the form:
+        `{PREFIX.value}{PREFIX_SEPARATOR}{base36-encoded-id}`
+
+    The ID portion is currently a UUIDv7, so it is unique across space
+    and time, but still provides a natural creation ordering.
     """
-    ns_since_epoch = time.time_ns()
-    random_value = secrets.randbelow(2**num_random_bits)
 
-    binary_id = (ns_since_epoch << num_random_bits) | random_value
+    PREFIX: E
+    PREFIX_SEPARATOR: Final = "_"
+    _ALPHABET: Final = string.digits + string.ascii_lowercase
+    _ALPHABET_LEN: Final = len(_ALPHABET)
 
-    alphabet_len = len(alphabet)
-    encoded_id = ""
-    while binary_id > 0:
-        binary_id, remainder = divmod(binary_id, alphabet_len)
-        encoded_id = alphabet[remainder] + encoded_id
+    _id: uuid.UUID
 
-    return encoded_id
+    def __init__(self):
+        self._id = uuid.uuid7()
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}('{self.__str__()}')"
+
+    def __str__(self) -> str:
+        # Do a base36 encoding instead of the normal hex (base16)
+        # encoding to keep the resulting string shorter.
+        id_int = self._id.int
+        encoded_chars = []
+        while id_int > 0:
+            id_int, remainder = divmod(id_int, self._ALPHABET_LEN)
+            encoded_chars.append(self._ALPHABET[remainder])
+        encoded_id = "".join(reversed(encoded_chars))
+        return f"{self.PREFIX.value}{self.PREFIX_SEPARATOR}{encoded_id}"
+
+    def __eq__(self, other):
+        if isinstance(other, BaseID):
+            return str(self) == str(other)
+        return False
+
+    def __hash__(self):
+        return hash(str(self))
+
+
+@unique
+class IDType(Enum):
+    """
+    Set of ID types in this system. Member values are used
+    as the ID prefix, so they must remain unique.
+    """
+
+    ACCOUNT = "acct"
+    SESSION = "ses"
+
+    @classmethod
+    def from_id(cls, encoded_id: str) -> "IDType":
+        """
+        Returns the IDType from an encoded ID. If the prefix
+        of the encoded ID doesn't match any of the Enum members,
+        a `ValueError` is raised.
+        """
+        for member in cls:
+            if encoded_id.startswith(member.value + "_"):
+                return IDType(member)
+        raise ValueError(f"Unknown prefix in ID: '{encoded_id}'")
+
+
+class SystemID(BaseID[IDType]):
+    """
+    Base class for all ID types in our system.
+    """
+    pass
+
+
+class AccountID(SystemID):
+    PREFIX = IDType.ACCOUNT
+
+
+class SessionID(SystemID):
+    PREFIX = IDType.SESSION
 ```
 
-The IDs generated by this look like `q8f7zge7omq09fxqvr` by default. They are relatively short (18 characters), case-insensitive, and safe to embed in URLs. 
+The `BaseID` class is generic and can be used in any project. You can even package it into a reusable library if you wish. It has a generic type argument that is bounded to an `Enum`, which your system should declare in a central place to keep your various ID types (and their prefixes) unique.
 
-By default, this uses a 32 bit random value, which is enough to generate a few hundred IDs per-nanosecond with an extremely low probability of collision. If you need more than that, increase the `num_random_bits` parameter. For example, 40 random bits would let you generate about ten thousand IDs per-nanosecond with a similarly low probability of collision, while only slightly increasing the encoded length.
+Within your system's code, you declare an `Enum` with members for each of your ID types. The value of each member is the prefix that will be appended to all IDs of that type. In this example, I've also declared a common base class for all IDs defined in the system (called `SystemID`), which extends `BaseID` specifying our `IDType` enum as the generic type argument.
 
-This code also uses a cryptographically-random value instead of a simpler pseudo-random value. This makes it harder for an attacker to guess another valid ID given a known ID, but it's also slightly slower to generate. If your system enforces proper authentication and authorization, you could use a pseudo-random value instead to improve the performance.
+After that, declaring a new ID type is as simple as:
 
+1. Adding a new member to the `IDType` enum.
+1. Declaring a new class that extends `SystemID`.
+1. Set the `PREFIX` variable on the new class to the new `IDType` member.
+
+You can then declare functions that accept specific ID types. If you accidentally try to pass the wrong ID type to those functions, your type-checker will flag the error right away!
