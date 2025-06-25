@@ -134,18 +134,21 @@ T = TypeVar("T", bound="BaseID")
 @total_ordering
 class BaseID(Generic[E]):
     """
-    Abstract base class for all ID types. The generic type argument `E`
-    should be an `Enum` with members for each distinct ID type in your
-    system. The Enum member name can be descriptive (e.g., `ACCOUNT`)
-    but the value should be the prefix on all IDs of that type
-    (e.g., 'acct'). Use the `enum.unique` decorator to ensure the values
-    remain unique.
+    Abstract base class for all ID types.
+
+    The generic type argument `E` should be an `Enum` with members for
+    each distinct ID type in your system. The Enum member name can be
+    descriptive (e.g., `ACCOUNT`) but the value should be the prefix
+    to use for all IDs of that type (e.g., "acct"). Use the
+    `@enum.unique` decorator to ensure the values remain unique.
 
     Encoded IDs will be in the form:
         `{PREFIX.value}_{base36-encoded-id}`
 
     The ID portion is currently a UUIDv7, so it is unique across space
     and time, but still provides a natural creation ordering.
+
+    author: Dave Stearns <https://github.com/davestearns>
     """
 
     PREFIX_SEPARATOR: Final = "_"
