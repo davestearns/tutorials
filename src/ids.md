@@ -122,17 +122,15 @@ In Python you can support this using a base class like so:
 
 ```python
 import string
-from functools import total_ordering
 from enum import Enum
-from typing import TypeVar, Generic, Final, Type
+from typing import TypeVar, Generic, Final
 import uuid_utils as uuid
 
 E = TypeVar("E", bound=Enum)
 T = TypeVar("T", bound="BaseID")
 
 
-@total_ordering
-class BaseID(Generic[E]):
+class BaseID(str, Generic[E]):
     """
     Abstract base class for all ID types.
 
@@ -159,52 +157,40 @@ class BaseID(Generic[E]):
     """
     PREFIX must be set by derived classes to a member of the enum.
     """
-    _id: str
 
-    def __init__(self):
-        id_int = uuid.uuid7().int
-        # Use base36 encoding instead of base16 (hex) to 
-        # make the string ID shorter.
-        encoded_chars = []
-        while id_int > 0:
-            id_int, remainder = divmod(id_int, self._ALPHABET_LEN)
-            encoded_chars.append(self._ALPHABET[remainder])
-        encoded = "".join(reversed(encoded_chars))
-        self._id = f"{self.PREFIX.value}{self.PREFIX_SEPARATOR}{encoded}"
+    def __new__(cls, encoded_id: str | None = None):
+        if encoded_id is None:
+            # Generate a new UUID
+            id_int = uuid.uuid7().int
 
-    def __str__(self) -> str:
-        return self._id
+            # Base36 encode it
+            encoded_chars = []
+            while id_int > 0:
+                id_int, remainder = divmod(id_int, cls._ALPHABET_LEN)
+                encoded_chars.append(cls._ALPHABET[remainder])
+            encoded = "".join(reversed(encoded_chars))
+
+            # Build the full prefixed ID and initialize str with it
+            prefixed_id = f"{cls.PREFIX.value}{cls.PREFIX_SEPARATOR}{encoded}"
+            return super().__new__(cls, prefixed_id)
+        else:
+            # Validate encoded_id
+            expected_prefix = cls.PREFIX.value + cls.PREFIX_SEPARATOR
+            if not encoded_id.startswith(expected_prefix):
+                raise ValueError(
+                    f"Encoded ID {encoded_id} does not have expected prefix {cls.PREFIX}"
+                )
+            return super().__new__(cls, encoded_id)
 
     def __repr__(self) -> str:
+        """
+        Returns the detailed representation, which include the specific
+        ID class name wrapped around the string ID value.
+        """
         return f"{self.__class__.__name__}('{self.__str__()}')"
-
-    def __eq__(self, other) -> bool:
-        return self._id == other._id if type(self) is type(other) else False
-
-    def __lt__(self, other) -> bool:
-        return self._id < other._id if type(self) is type(other) else NotImplemented
-
-    def __hash__(self) -> int:
-        return hash(str(self))
-
-    @classmethod
-    def parse(cls: Type[T], encoded_id: str) -> T:
-        """
-        Parses an encoded ID back into an instance of the ID class.
-        If the prefix on the encoded ID does not match the declared
-        PREFIX, this raises ValueError.
-        """
-        expected_prefix = cls.PREFIX.value + cls.PREFIX_SEPARATOR
-        if not encoded_id.startswith(expected_prefix):
-            raise ValueError(
-                f"Encoded ID {encoded_id} does not have expected prefix {cls.PREFIX}"
-            )
-        obj = cls.__new__(cls)
-        obj._id = encoded_id
-        return obj
 ```
 
-This `BaseID` class is generic and can be used in any project. You can even package it into a reusable library if you wish. It uses a UUIDv7 for the unique ID portion, but encodes it using base36 instead of base16 to keep the string form shorter. The base36 alphabet is just the characters 0-9 and a-z, so the IDs remain case-insensitive and URL-safe.
+This `BaseID` class is generic and can be used in any project. You can even package it into a reusable library if you wish. It uses a UUIDv7 for the unique ID portion, but encodes it to characters using base36 instead of base16 to keep the string form shorter. The base36 alphabet is just the characters 0-9 and a-z, so the IDs remain case-insensitive and URL-safe.
 
 The generic type variable `E` must be an `Enum` that you use to define all your ID types and their respective prefixes. This ensures that all your types and prefixes are unique. For example:
 
@@ -236,7 +222,7 @@ class IDType(Enum):
 
 As new ID types are added to your system, engineers must add a member to this enum. The `@unique` decorator ensures that the member values (the prefixes) remain unique.
 
-To tie the `BaseID` and `IDType` classes together, declare a class that will act as the base class for all ID types in your system. Then you can declare multiple ID classes that extend that base class, which ensures they all use the same `IDType` enumeration. The only thing the ID classes need to set is their respective `PREFIX` enumeration member.
+To tie the `BaseID` and `IDType` classes together, declare a class that will act as the base class for all ID types in your system. Then you can declare multiple ID classes that extend that base class--this ensures they all use the same `IDType` enumeration. The only thing the ID classes need to set is their respective `PREFIX` enumeration member.
 
 ```python
 class ModelID(BaseID[IDType]):
