@@ -122,41 +122,74 @@ In Python you can support this using a base class like so:
 
 ```python
 import string
-from enum import Enum
-from typing import TypeVar, Generic, Final
+from typing import Final, Type
 import uuid_utils as uuid
 
-E = TypeVar("E", bound=Enum)
-T = TypeVar("T", bound="BaseID")
 
-
-class BaseID(str, Generic[E]):
+class BaseID(str):
     """
-    Abstract base class for all ID types.
+    Abstract base class for all prefixed ID types.
 
-    The generic type argument `E` should be an `Enum` with members for
-    each distinct ID type in your system. The Enum member name can be
-    descriptive (e.g., `ACCOUNT`) but the value should be the prefix
-    to use for all IDs of that type (e.g., "acct"). Use the
-    `@enum.unique` decorator to ensure the values remain unique.
+    To define a new ID type, create a class that inherits from
+    `BaseID`, and set its `PREFIX` class variable to a string
+    value that is unique across all BaseID subclasses.
 
-    Encoded IDs will be in the form:
-        `{PREFIX.value}_{base36-encoded-id}`
+    Example:
+        >>> class TestID(BaseID):
+        ...     PREFIX = "test"
 
-    The ID portion is currently a UUIDv7, so it is unique across space
-    and time, but still provides a natural creation ordering.
+    If the PREFIX value is not unique across all subclasses
+    of BaseID, a ValueError will be raised when the class is
+    created.
+
+    To generate a new ID, just create a new instance of your
+    derived class with no arguments:
+
+    Example:
+        >>> id = TestID()
+
+    The value of the new `id` will have the form
+    `"{PREFIX}_{uuid7-in-base36}"`. UUIDv7 values start with
+    a timestamp so they have a natural creation ordering. The
+    UUID is encoded in base36 instead of hex (base16) to keep
+    it shorter.
+
+    The `id` will be typed as a `TestID`, but since it inherits
+    from `BaseID` and that inherits from `str`, you can treat
+    `id` as a string. Database libraries and other encoders
+    will also see it as a string, so it should work seamlessly.
+
+    To rehydrate a string ID back into a `TestID`, pass it
+    to the constructor as an argument:
+
+    Example:
+        >>> rehydrated_id = TestID(encoded_id)
+
+    A `ValueError` will be raised if `encoded_id` doesn't have
+    the right prefix.
+
+    If you have a string ID but aren't sure what type it is,
+    use `BaseID.parse()` to parse it into the appropriate type.
+
+    Example:
+        >>> parsed_id = BaseID.parse(encoded_id)
+
+    You can then test the `type(parsed_id)` to determine
+    which type it is.
 
     author: Dave Stearns <https://github.com/davestearns>
     """
 
     PREFIX_SEPARATOR: Final = "_"
-    _ALPHABET: Final = string.digits + string.ascii_lowercase
-    _ALPHABET_LEN: Final = len(_ALPHABET)
+    ALPHABET: Final = string.digits + string.ascii_lowercase
+    ALPHABET_LEN: Final = len(ALPHABET)
 
-    PREFIX: E
+    PREFIX: str
     """
-    PREFIX must be set by derived classes to a member of the enum.
+    Each derived class must set PREFIX to a unique string.
     """
+
+    prefix_to_class_map: dict[str, Type["BaseID"]] = {}
 
     def __new__(cls, encoded_id: str | None = None):
         if encoded_id is None:
@@ -166,16 +199,16 @@ class BaseID(str, Generic[E]):
             # Base36 encode it
             encoded_chars = []
             while id_int > 0:
-                id_int, remainder = divmod(id_int, cls._ALPHABET_LEN)
-                encoded_chars.append(cls._ALPHABET[remainder])
+                id_int, remainder = divmod(id_int, cls.ALPHABET_LEN)
+                encoded_chars.append(cls.ALPHABET[remainder])
             encoded = "".join(reversed(encoded_chars))
 
             # Build the full prefixed ID and initialize str with it
-            prefixed_id = f"{cls.PREFIX.value}{cls.PREFIX_SEPARATOR}{encoded}"
+            prefixed_id = f"{cls.PREFIX}{cls.PREFIX_SEPARATOR}{encoded}"
             return super().__new__(cls, prefixed_id)
         else:
             # Validate encoded_id
-            expected_prefix = cls.PREFIX.value + cls.PREFIX_SEPARATOR
+            expected_prefix = cls.PREFIX + cls.PREFIX_SEPARATOR
             if not encoded_id.startswith(expected_prefix):
                 raise ValueError(
                     f"Encoded ID {encoded_id} does not have expected prefix {cls.PREFIX}"
@@ -188,52 +221,45 @@ class BaseID(str, Generic[E]):
         ID class name wrapped around the string ID value.
         """
         return f"{self.__class__.__name__}('{self.__str__()}')"
+
+    def __init_subclass__(cls):
+        """
+        Called when new subclasses are initialized. This is where we ensure
+        that the PREFIX value on a new subclass is unique across the system.
+        """
+        if cls.PREFIX in cls.prefix_to_class_map:
+            raise ValueError(
+                f"The ID prefix '{cls.PREFIX}' is used on both"
+                f" {cls.prefix_to_class_map[cls.PREFIX]} and {cls}."
+                " ID prefixes must be unique across the set of all ID classes."
+            )
+        cls.prefix_to_class_map[cls.PREFIX] = cls
+        return super().__init_subclass__()
+
+    @classmethod
+    def parse(cls, encoded_id: str) -> "BaseID":
+        for prefix, cls in cls.prefix_to_class_map.items():
+            if encoded_id.startswith(prefix):
+                return cls(encoded_id)
+
+        raise ValueError(
+            f"The prefix of ID '{encoded_id}' does not match a known ID prefix."
+        )
 ```
+
+_[Full source code and tests](https://github.com/davestearns/ids)_
 
 This `BaseID` class is generic and can be used in any project. You can even package it into a reusable library if you wish. It uses a UUIDv7 for the unique ID portion, but encodes it to characters using base36 instead of base16 to keep the string form shorter. The base36 alphabet is just the characters 0-9 and a-z, so the IDs remain case-insensitive and URL-safe.
 
-The generic type variable `E` must be an `Enum` that you use to define all your ID types and their respective prefixes. This ensures that all your types and prefixes are unique. For example:
+To define your specific ID type, create classes that inherit from `BaseID` and set the class `PREFIX` variable to a unique string.
 
 ```python
-from enum import Enum, unique
-
-@unique
-class IDType(Enum):
-    """
-    Set of ID types in this system. Member values are used
-    as the ID prefix, so they must remain unique.
-    """
-
-    ACCOUNT = "acct"
-    SESSION = "ses"
-
-    @classmethod
-    def from_id(cls, encoded_id: str) -> "IDType":
-        """
-        Returns the IDType from an encoded ID. If the prefix
-        of the encoded ID doesn't match any of the Enum members,
-        a `ValueError` is raised.
-        """
-        for member in cls:
-            if encoded_id.startswith(member.value + "_"):
-                return IDType(member)
-        raise ValueError(f"Unknown prefix in ID: '{encoded_id}'")
-```
-
-As new ID types are added to your system, engineers must add a member to this enum. The `@unique` decorator ensures that the member values (the prefixes) remain unique.
-
-To tie the `BaseID` and `IDType` classes together, declare a class that will act as the base class for all ID types in your system. Then you can declare multiple ID classes that extend that base class--this ensures they all use the same `IDType` enumeration. The only thing the ID classes need to set is their respective `PREFIX` enumeration member.
-
-```python
-class ModelID(BaseID[IDType]):
-    pass
-
-class AccountID(ModelID):
-    PREFIX = IDType.ACCOUNT
+class AccountID(BaseID):
+    PREFIX = "acct"
 
 
-class SessionID(ModelID):
-    PREFIX = IDType.SESSION
+class SessionID(BaseID):
+    PREFIX = "ses"
 ```
 
 Now you can create these various strongly-typed IDs, turn them into strings, and parse them back into concrete types:
@@ -248,18 +274,12 @@ id = AccountID()
 # Pass it to methods expecting an AccountID
 dump_id(id)
 
-# This will generate a type checking error:
+# Passing a different type will generate a type checking error.
 # dump_id(SessionID())
-
-# Convert to a string
-encoded_id = str(id)
-
-# Get the IDType from the encoded ID
-assert IDType.from_id(encoded_id) == IDType.ACCOUNT
 
 # Parse the string back into an AccountID
 # (will raise ValueError if wrong prefix)
-parsed_id = AccountID.parse(encoded_id)
+parsed_id = AccountID.parse(id)
 
 assert type(parsed_id) is AccountID
 assert parsed_id == id
