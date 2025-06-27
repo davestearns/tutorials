@@ -227,6 +227,11 @@ class BaseID(str):
         Called when new subclasses are initialized. This is where we ensure
         that the PREFIX value on a new subclass is unique across the system.
         """
+        if not hasattr(cls, "PREFIX"):
+            raise AttributeError(
+                "ID classes must define a class property named"
+                "`PREFIX` set to a unique prefix string."
+            )
         if cls.PREFIX in cls.prefix_to_class_map:
             raise ValueError(
                 f"The ID prefix '{cls.PREFIX}' is used on both"
@@ -238,6 +243,11 @@ class BaseID(str):
 
     @classmethod
     def parse(cls, encoded_id: str) -> "BaseID":
+        """
+        Parses an string ID of an unknown type into the appropriate
+        class ID instance. If the prefix does not match any of the
+        registered ones, this raises `ValueError`.
+        """
         for prefix, cls in cls.prefix_to_class_map.items():
             if encoded_id.startswith(prefix):
                 return cls(encoded_id)
@@ -251,7 +261,7 @@ _[Full source code and tests](https://github.com/davestearns/ids)_
 
 This `BaseID` class is generic and can be used in any project. You can even package it into a reusable library if you wish. It uses a UUIDv7 for the unique ID portion, but encodes it to characters using base36 instead of base16 to keep the string form shorter. The base36 alphabet is just the characters 0-9 and a-z, so the IDs remain case-insensitive and URL-safe.
 
-To define your specific ID type, create classes that inherit from `BaseID` and set the class `PREFIX` variable to a unique string.
+To define your specific ID type, create classes that inherit from `BaseID` and set the class variable `PREFIX` to a unique string. The base class ensures that these prefix strings remain unique across all sub-classes.
 
 ```python
 class AccountID(BaseID):
@@ -265,22 +275,24 @@ class SessionID(BaseID):
 Now you can create these various strongly-typed IDs, turn them into strings, and parse them back into concrete types:
 
 ```python
-def dump_id(account_id: AccountID) -> None:
+def func_wants_account_id(account_id: AccountID) -> None:
     print(repr(account_id))
 
 # Generate a new AccountID
 id = AccountID()
 
-# Pass it to methods expecting an AccountID
-dump_id(id)
+# Pass it to functions expecting an AccountID.
+# Trying to pass a different type will trigger
+# a static type checking error.
+func_wants_account_id(id)
+# func_wants_account_id(SessionID()) -- type error!
 
-# Passing a different type will generate a type checking error.
-# dump_id(SessionID())
-
-# Parse the string back into an AccountID
+# When you get an id string from a client, you can
+# re-hydrate it back into an instance of ID class.
 # (will raise ValueError if wrong prefix)
-parsed_id = AccountID.parse(id)
+id_from_client: str = str(id)
+rehydrated_id = AccountID(id)
 
-assert type(parsed_id) is AccountID
-assert parsed_id == id
+assert type(rehydrated_id) is AccountID
+assert rehydrated_id == id
 ```
