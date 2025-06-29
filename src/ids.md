@@ -227,7 +227,8 @@ class BaseID(str):
             expected_prefix = cls.PREFIX + cls.PREFIX_SEPARATOR
             if not encoded_id.startswith(expected_prefix):
                 raise ValueError(
-                    f"Encoded ID {encoded_id} does not have expected prefix {cls.PREFIX}"
+                    f"Encoded ID '{encoded_id}' does not have the expected"
+                    f" prefix '{expected_prefix}'"
                 )
             return super().__new__(cls, encoded_id)
 
