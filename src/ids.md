@@ -157,8 +157,8 @@ class BaseID(str):
 
     If you instead want a totally random ID, set the class
     property `ORDERED = False`, and `secrets.randbits()` will
-    be used instead. This is appropriate when you are using the IDs
-    as authorization tokens and you want them to be totally
+    be used instead. This is appropriate when you are using the
+    IDs as authorization tokens and you want them to be totally
     unguessable (e.g., session or password reset token).
 
     The `id` will be typed as a `TestID`, but since it inherits
