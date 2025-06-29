@@ -318,7 +318,7 @@ One drawback of ordered IDs (i.e., those that start with a timestamp) is that th
 
 A UUIDv7 is a bit better: it has 74 random bits after the timestamp. If the implementation uses a cryptographically secure random number generator (not all do), this value will be much harder to guess, but it's still a much smaller search space than 128 random bits.
 
-So ordered IDs are a tradeoff: we get a nice feature (natural creation ordering) in exchange for a little less security. And this tradeoff is typically fine because in most cases, these IDs will be used with APIs that are **authenticated**. The client trying to read a resource identified by one of these IDs must first sign-in with valid credentials, so your system knows who they are, and whether they are allowed to access the specified resource.
+So ordered IDs are a tradeoff: we get a nice feature (natural creation ordering) in exchange for a less security. And this tradeoff is typically fine because in most cases, these IDs will be used with APIs that are **authenticated**. The client trying to read a resource identified by one of these IDs must first sign-in with valid credentials, so your system knows who they are, and whether they are allowed to access the specified resource.
 
 But sometimes systems need to return unique values that provide access to a resource _without authentication_. For example, a video conferencing system might need to generate a unique meeting ID and include it in a URL that participants can use to join without authentication. Or a file sharing site that lets users share a file with "anyone who has the link" needs to generate a unique value for that document that is difficult for anyone without the link to guess.
 
