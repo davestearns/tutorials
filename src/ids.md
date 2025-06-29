@@ -154,6 +154,12 @@ class BaseID(str):
     UUID is encoded in base36 instead of hex (base16) to keep
     it shorter.
 
+    If you instead want a totally random ID, set the class
+    property `ORDERED = False`, and a UUIDv4 will be used instead.
+    This is appropriate when you are using the IDs as
+    authorization tokens and you want them to be totally
+    unguessable (e.g., a meeting ID for a video conferencing app).
+
     The `id` will be typed as a `TestID`, but since it inherits
     from `BaseID` and that inherits from `str`, you can treat
     `id` as a string. Database libraries and other encoders
@@ -189,12 +195,21 @@ class BaseID(str):
     Each derived class must set PREFIX to a unique string.
     """
 
+    ORDERED: bool = True
+    """
+    When set to True, new IDs will start with a timestamp,
+    so they have a natural creation ordering. If you instead
+    want a totally random ID set this to False. Random IDs are
+    good for situations where you're using the ID as an
+    authorization token, so you need it to be unguessable.
+    """
+
     prefix_to_class_map: dict[str, Type["BaseID"]] = {}
 
     def __new__(cls, encoded_id: str | None = None):
         if encoded_id is None:
             # Generate a new UUID
-            id_int = uuid.uuid7().int
+            id_int = uuid.uuid7().int if cls.ORDERED else uuid.uuid4().int
 
             # Base36 encode it
             encoded_chars = []
@@ -259,7 +274,7 @@ class BaseID(str):
 
 _[Full source code and tests](https://github.com/davestearns/ids)_
 
-This `BaseID` class is generic and can be used in any project. You can even package it into a reusable library if you wish. It uses a UUIDv7 for the unique ID portion, but encodes it to characters using base36 instead of base16 to keep the string form shorter. The base36 alphabet is just the characters 0-9 and a-z, so the IDs remain case-insensitive and URL-safe.
+This `BaseID` class is generic and can be used in any project. You can even package it into a reusable library if you wish. By default it uses a UUIDv7 for the unique ID portion, but encodes it to characters using base36 instead of base16 to keep the string form shorter. The base36 alphabet is just the characters 0-9 and a-z, so the IDs remain case-insensitive and URL-safe.
 
 To define your specific ID type, create classes that inherit from `BaseID` and set the class variable `PREFIX` to a unique string. The base class ensures that these prefix strings remain unique across all sub-classes.
 
@@ -268,8 +283,8 @@ class AccountID(BaseID):
     PREFIX = "acct"
 
 
-class SessionID(BaseID):
-    PREFIX = "ses"
+class PostID(BaseID):
+    PREFIX = "post"
 ```
 
 Now you can create these various strongly-typed IDs, turn them into strings, and parse them back into concrete types:
@@ -285,7 +300,7 @@ id = AccountID()
 # Trying to pass a different type will trigger
 # a static type checking error.
 func_wants_account_id(id)
-# func_wants_account_id(SessionID()) -- type error!
+# func_wants_account_id(PostID()) -- type error!
 
 # When you get an id string from a client, you can
 # re-hydrate it back into an instance of ID class.
@@ -296,3 +311,22 @@ rehydrated_id = AccountID(id)
 assert type(rehydrated_id) is AccountID
 assert rehydrated_id == id
 ```
+
+## IDs vs Authorization Tokens
+
+One drawback of ordered IDs (i.e., those that start with a timestamp) is that they are more guessable than a totally random value. For example, a Snowflake ID is a timestamp followed by a machine ID followed by a step counter. If you have one valid Snowflake ID (from your own record), you can pretty easily guess another valid ID that was minted from that same machine around the same time.
+
+A UUIDv7 is a bit better: it has 74 random bits after the timestamp. If the implementation uses a cryptographically secure random number generator (not all do), this value will be much harder to guess, but it's still a much smaller search space than 128 random bits.
+
+So ordered IDs are a tradeoff: we get a nice feature (natural creation ordering) in exchange for a little less security. And this tradeoff is typically fine because in most cases, these IDs will be used with APIs that are **authenticated**. The client trying to read a resource identified by one of these IDs must first sign-in with valid credentials, so your system knows who they are, and whether they are allowed to access the specified resource.
+
+But sometimes systems need to return unique values that provide access to a resource _without authentication_. For example, a video conferencing system might need to generate a unique meeting ID and include it in a URL that participants can use to join without authentication. Or a file sharing site that lets users share a file with "anyone who has the link" needs to generate a unique value for that document that is difficult for anyone without the link to guess.
+
+These unique values are IDs, but they are actually something much more powerful: **authorization tokens**. If an anonymous client provides the correct token, they are authorized to read the resource, without needing to sign-in first.
+
+In these cases, the security tradeoff of ordered IDs becomes more dangerous. If an attacker can guess a valid ID, they gain immediate access to that resource, even if no one shared the link with them.
+
+Although it might be tempting, it's a bad idea to use ordered IDs, especially Snowflake IDs, for authorization tokens. Instead, you should use a cryptographically-random 128-bit value, and if possible, [digitally sign](crypto.md#digital-signatures) it using a secret key known only on the server.
+
+In the next tutorial, I'll show you in detail how to generate and verify these [authorization tokens](auth-tokens.md).
+
