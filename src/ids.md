@@ -122,6 +122,7 @@ In Python you can support this using a base class like so:
 
 ```python
 import string
+import secrets
 from typing import Final, Type
 import uuid_utils as uuid
 
@@ -155,10 +156,10 @@ class BaseID(str):
     it shorter.
 
     If you instead want a totally random ID, set the class
-    property `ORDERED = False`, and a UUIDv4 will be used instead.
-    This is appropriate when you are using the IDs as
-    authorization tokens and you want them to be totally
-    unguessable (e.g., a meeting ID for a video conferencing app).
+    property `ORDERED = False`, and `secrets.randbits()` will
+    be used instead. This is appropriate when you are using the IDs
+    as authorization tokens and you want them to be totally
+    unguessable (e.g., session or password reset token).
 
     The `id` will be typed as a `TestID`, but since it inherits
     from `BaseID` and that inherits from `str`, you can treat
@@ -209,7 +210,7 @@ class BaseID(str):
     def __new__(cls, encoded_id: str | None = None):
         if encoded_id is None:
             # Generate a new UUID
-            id_int = uuid.uuid7().int if cls.ORDERED else uuid.uuid4().int
+            id_int = uuid.uuid7().int if cls.ORDERED else secrets.randbits(128)
 
             # Base36 encode it
             encoded_chars = []
