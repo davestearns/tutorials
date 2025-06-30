@@ -240,7 +240,7 @@ Asymmetric encryption is pretty magical, but it has a few downsides:
 * It's much slower and computationally-intensive than symmetric encryption.
 * The message length is limited to the size of the asymmetric keys, minus some padding, so you can't say much!
 
-This is why asymmetric encryption is mostly used to agree upon a share symmetric key so that the parties can switch to using symmetric encryption for the rest of the conversation.
+This is why asymmetric encryption is mostly used to agree upon a shared symmetric key so that the parties can switch to using symmetric encryption for the rest of the conversation.
 
 One way to do this is to use asymmetric encryption to encrypt and share a symmetric key--that is, the message we encrypt/decrypt is actually just a symmetric key to use for subsequent messages. Symmetric keys are typically quite small, so the length limitations of asymmetric encryption are not an issue.
 
