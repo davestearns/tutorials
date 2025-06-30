@@ -330,5 +330,4 @@ In these cases, the security tradeoff of ordered IDs becomes more dangerous. If 
 
 Although it might be tempting, it's a bad idea to use ordered IDs, especially Snowflake IDs, for authorization tokens. Instead, you should use a cryptographically-random value of sufficient length (128 or even 256 bits), and if possible, [digitally sign](crypto.md#digital-signatures) it using a secret key known only on the server.
 
-In the next tutorial, I'll show you in detail how to generate and verify these [authorization tokens](auth-tokens.md).
-
+For more details, see the tutorial on [Authenticated Sessions](authentication.md)
