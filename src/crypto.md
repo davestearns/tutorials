@@ -1,10 +1,10 @@
 # Intro to Cryptography
 
-If you want to design, build, or manage software services on the Internet, you need to understand at least the basics of cryptography. You don't need to fully understand the math--few people do! And you should never implement the core algorithms yourself--instead always use the canonical library for your chosen programming language. But you do need to understand what these core algorithms are, what they can and cannot do, and how to combine them to create secure systems.
+If you want to design, build, or manage software services on the Internet, you need to understand at least the basics of cryptography. You don't need to fully understand the math---few people do! And you should never implement the core algorithms yourself---instead always use the canonical library for your chosen programming language. But you do need to understand what these core algorithms are, what they can and cannot do, and how to combine them to create secure systems.
 
 In this tutorial I'll explain the basics of cryptographic hashing, symmetric and asymmetric encryption, digital signatures, and digital certificates. We will use these algorithms in subsequent tutorials, so take the time to read carefully and understand their guarantees and weaknesses.
 
-This tutorial won't magically turn you into a security engineer--that takes years of diligent study, and _a lot_ more detail. But it will help you _talk_ to a security engineer and understand (most of) what they are saying to you. It will also set you up to understand lots of related topics like HTTPS/TLS, authenticated sessions, e-signing, and blockchains.
+This tutorial won't magically turn you into a security engineer---that takes years of diligent study, and _a lot_ more detail. But it will help you _talk_ to a security engineer and understand (most of) what they are saying to you. It will also set you up to understand lots of related topics like HTTPS/TLS, authenticated sessions, e-signing, and blockchains.
 
 ## Cryptographic Hashing
 
@@ -25,7 +25,7 @@ echo 'data to hash' | openssl dgst -sha256
 ```
 
 > [!TIP]
-> If you get an error saying "command not found," you need to install `openssl`. Go to your favorite LLM and ask it `how do I install the openssl command line utility on {OS}` replacing `{OS}` with the name of your operating system. If you get some other kind of error, check your version by running `openssl version`--if it's lower than 3.0, you probably need to upgrade.
+> If you get an error saying "command not found," you need to install `openssl`. Go to your favorite LLM and ask it `how do I install the openssl command line utility on {OS}` replacing `{OS}` with the name of your operating system. If you get some other kind of error, check your version by running `openssl version`---if it's lower than 3.0, you probably need to upgrade.
 > If you are totally new to the command line, you might want to go through [this interactive tutorial](https://linuxjourney.com/lesson/the-shell) to learn the basics.
 
 For those who are maybe new to the command line, let's break that down a bit:
@@ -51,14 +51,14 @@ Now let's try hashing an entire file, which can be as big as you want. Remove th
 openssl dgst -sha256 my-large-file.pdf
 ```
 
-Regardless of how big the file is, the output hash will still be the same relatively small size--even if the input is gigabytes in size, the output hash will only be 256 bits when using SHA-256. That should make it pretty obvious that these hashes are irreversible--there's no way you could reconstruct a multi-gigabyte file from a 256 bit hash.
+Regardless of how big the file is, the output hash will still be the same relatively small size---even if the input is gigabytes in size, the output hash will only be 256 bits when using SHA-256. That should make it pretty obvious that these hashes are irreversible---there's no way you could reconstruct a multi-gigabyte file from a 256 bit hash.
 
 > [!TIP]
 > We've done all of this at the command line, but there are libraries that do the same thing for all the common programming languages. Just ask your favorite LLM `how do I create a SHA-256 hash in {LANGUAGE}` replacing `{LANGUAGE}` with the name of your programming language.
 
 Cryptographic hashes are very useful in a few different ways:
 
-* **Content Identifiers:** The deterministic and collision-resistant guarantees make cryptographic hashes ideal for compactly identifying potentially large content. For example, if you have a catalog of songs, along with their hashes, you can quickly determine if a new song uploaded to your catalog is the same as one you already have--you only need to compare the short hashes, not the large song files themselves. Decentralized source code control systems like [git](https://git-scm.com/) also use hashes to determine if you already have a commit fetched from a remote branch. 
+* **Content Identifiers:** The deterministic and collision-resistant guarantees make cryptographic hashes ideal for compactly identifying potentially large content. For example, if you have a catalog of songs, along with their hashes, you can quickly determine if a new song uploaded to your catalog is the same as one you already have---you only need to compare the short hashes, not the large song files themselves. Decentralized source code control systems like [git](https://git-scm.com/) also use hashes to determine if you already have a commit fetched from a remote branch. 
 * **Tamper Detection:** The deterministic guarantee makes cryptographic hashes very useful for detecting if content has changed. For example, if you want to verify that a document or photo hasn't changed since the last time you saw it, you can hash the current version and compare it with a hash you made earlier. Blockchains like bitcoin also use cryptographic hashes to ensure the integrity of the ledger.
 * **Irreversible but Verifiable Tokens**: The irreversible and deterministic guarantees mean that hashes can be used to store sensitive information that we don't need to reveal, but may still need to verify in the future. For example, we always store hashes of user passwords, never the passwords themselves. During sign-in, we can still verify the provided password by hashing it and comparing that to our stored hash, but an attacker can't directly calculate the original password from the stored hash. We will discuss the details of password hashing, which are more complicated than this simple example, in a future tutorial.
 
@@ -170,7 +170,7 @@ In these situations, we need to turn to _asymmetric encryption_.
 
 Instead of using a single key, asymmetric encryption algorithms use a pair of related keys. One key is private and must be kept secret, just like a symmetric key, but the other key is public, so it can be shared with anyone. You can even publish your public key on your website or social media profile.
 
-Once you generate a pair of these public/private keys, you can use the algorithm to encrypt messages using either key, but the message can only be decrypted using _the other key_. That rule is very important to remember and understand--you can't decrypt using the _same key_, only the _other key_. 
+Once you generate a pair of these public/private keys, you can use the algorithm to encrypt messages using either key, but the message can only be decrypted using _the other key_. That rule is very important to remember and understand---you can't decrypt using the _same key_, only the _other key_. 
 
 You might be wondering, "if these keys are related, and one of them is public, couldn't an attacker simply _calculate_ the private key from the public key?" Thankfully that's not possible, at least not in any reasonable amount of time. The two keys are mathematically related, but deriving one from the other is not computationally feasible given our current computing technology. The relationship relies on so-called ["trapdoor" calculations](https://en.wikipedia.org/wiki/Trapdoor_function), which are easy to do in one direction, but totally intractable to do in the other. For example, calculating the product of two sufficiently large prime numbers is relatively easy for a computer to do, but factoring that product back into its source primes would take several lifetimes to compute.
 
@@ -242,7 +242,7 @@ Asymmetric encryption is pretty magical, but it has a few downsides:
 
 This is why asymmetric encryption is mostly used to agree upon a shared symmetric key so that the parties can switch to using symmetric encryption for the rest of the conversation.
 
-One way to do this is to use asymmetric encryption to encrypt and share a symmetric key--that is, the message we encrypt/decrypt is actually just a symmetric key to use for subsequent messages. Symmetric keys are typically quite small, so the length limitations of asymmetric encryption are not an issue.
+One way to do this is to use asymmetric encryption to encrypt and share a symmetric key---that is, the message we encrypt/decrypt is actually just a symmetric key to use for subsequent messages. Symmetric keys are typically quite small, so the length limitations of asymmetric encryption are not an issue.
 
 But it turns out that asymmetric keys also have a nifty mathematical property that allows Alice and Bob to derive the same shared secret (i.e., a password for deriving a symmetric key) without ever needing to send it in encrypted form across the public network. The algorithm is called Diffie-Hellman Key Exchange, and this video provides a fantastic visual explanation:
 
@@ -330,7 +330,7 @@ To explain the process of asymmetric signatures, let's assume Alice is again wan
 1. Alice then encrypts `H` using her private key. Let's call that `SIG`.
 1. If the message being signed isn't secret, Alice can just send the message to Bob along with `SIG`. Otherwise Alice can encrypt the message using Bob's public key (like above).
 1. When Bob receives the message plus `SIG` he first decrypts `SIG` back into `H` using Alice's public key. If the message was also encrypted, he decrypts it using his own private key.
-1. Bob then re-hashes the message--let's call that `H1`.
+1. Bob then re-hashes the message---let's call that `H1`.
 1. Bob compares `H1` to `H`: if they match, he knows that it was signed by Alice **and** the message was not changed in-transit. If not, the signature is invalid.
 
 The pseudomoji code looks like this:
@@ -396,7 +396,7 @@ To verify the signature, use the `dgst` sub-command again, but pass the signer's
 openssl dgst -sha256 -verify alice_public.pem -signature document.sig document.txt
 ```
 
-If the document hasn't changed, the signature should be valid. Try changing document.txt and running just the verify command again--it should then fail because the document is now different than when it was signed!
+If the document hasn't changed, the signature should be valid. Try changing document.txt and running just the verify command again---it should then fail because the document is now different than when it was signed!
 
 ### Symmetric Signatures
 
@@ -454,7 +454,7 @@ Digital certificates are issued by an authority, which everyone in the conversat
 
 1. Alice uses her private key to sign a file called a Certificate Signing Request (CSR). This file has a specific format in which she can specify her public key and some properties about herself that the authority will validate. Typically these are properties that would help others identify her, such as her legal name, email address, and maybe mailing address.
 1. Alice sends the CSR to a/the trusted Certificate Authority (CA).
-1. The CA validates the properties in the CSR. How they do this depends on the properties--e.g., validating an email address can be done by simply sending it a message with a link Alice must click, but validating a legal name and address might require a background/credit check plus sending letters through the post.
+1. The CA validates the properties in the CSR. How they do this depends on the properties---e.g., validating an email address can be done by simply sending it a message with a link Alice must click, but validating a legal name and address might require a background/credit check plus sending letters through the post.
 1. Once the CA validates all the properties, the CA creates and signs a certificate. The certificate contains all the info from the CSR (including Alice's public key), as well as similar info about the CA (including their public key). It also typically includes a date range during which the certificate should be considered valid.
 1. Alice can now share this certificate with others who trust the same CA, like Bob.
 1. Bob can verify the CA's signature in the certificate to ensure it really came from the trusted CA.

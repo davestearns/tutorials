@@ -73,7 +73,7 @@ The host and associated IP address can get you connected to a server across the 
 
 As a convention, web servers listen on port `80` for unencrypted HTTP requests, and port `443` for encrypted HTTPS requests. If you don't specify a port number in your URL, the browser will assume these conventional ports. But you can override this by including a port number in your URL, like so: `http://localhost:4000/path/to/resource`. This tells the client to connect to port `4000` instead of the conventional port `80`.
 
-Many Unix-based systems (including MacOS) do not allow non-root users to listen on ports lower than 1024, so when you want to build and test an HTTP server on your own machine, you typically need to listen on a higher port number like 4000. Your server will work exactly the same--you just need to include that port number when connecting to your server from a web browser or testing tool.
+Many Unix-based systems (including MacOS) do not allow non-root users to listen on ports lower than 1024, so when you want to build and test an HTTP server on your own machine, you typically need to listen on a higher port number like 4000. Your server will work exactly the same---you just need to include that port number when connecting to your server from a web browser or testing tool.
 
 ### Origin
 
@@ -211,3 +211,16 @@ Following the response headers is the response body. For a `GET` request, this w
 The examples so far have been in version 1.1 of HTTP, which uses simple plain-text, human-readable messages. Although these plain text messages make the protocol easy to see and understand, they are not as efficient as a more-compact, binary protocol would be. These inefficiencies led many browser and server vendors to experiment with binary protocols (e.g., SPDY), which eventually became the basis for a new version 2.0 of HTTP, known as [HTTP/2](https://datatracker.ietf.org/doc/html/rfc7540). This version is now supported by all the major browser vendors, as well as more recent web server frameworks.
 
 Although HTTP/2 is no longer human-readable, it still retains all the same concepts outlined in this tutorial. The developer tools within the browsers will still show you all the request and response headers, bodies, and status codes, but on the wire they are encoded into a very company binary format. This should increase the overall speed of requests/responses, while also reducing the number of bytes that have to be transmitted across our networks.
+
+## Stateless Protocol
+
+HTTP differs from older internet protocol in an important way: it is **stateless**. You might find that odd given that `GET` requests return the "current state of the resource," but the state we are talking about here is not about the resources passed back and forth, but the _network connection_ itself.
+
+In older protocols like FTP, clients connect to servers and then execute commands similar to those you execute at the command line on your local computer. For example, you can `cd` to a different directory and then all subsequent commands executed on that same FTP connection will be interpreted by the server relative to that new directory. But that also implies that all subsequent requests must be sent to the _same_ server, as only that server knows what the current directory is.
+
+With HTTP, there is no state maintained about the connection in-between requests. Each request is processed independently from all other requests sent on the same connection. This is what we mean by "stateless."
+
+This keeps HTTP very simple, but it also allows it to **scale**. If requests sent by the same client are independent of each other, they can be routed to _different_ servers on the backend by load balancers. As we get more and more concurrent requests, we can simply increase the number of those downstream servers, and maybe add another load balancer. This is known as **horizontal scaling** because we are increasing the number of servers, not the size of the existing servers. Horizontal scaling is possible precisely because HTTP is a stateless protocol.
+
+But like all things in software, this stateless quality is a tradeoff: it enables horizontal scaling, but it makes other things much more difficult. For example, supporting authenticated sessions---where a user signs-in during one request, and then accesses private resources in subsequent requests---is tricky when requests are independent and could be routed to different servers on the backend. We will return to this when we discuss [Session and Authorization Tokens](auth-tokens.md).
+

@@ -10,7 +10,7 @@ When a request is made to your web servers, either by a web browser or by a clie
 
 ![diagram showing load balancer in-between a set of clients and a set of HTTP servers](img/load-balancer.png)
 
-Load balancers are fairly generic components, meaning they are typically open-source software programs that can be used "off the shelf" with just a minimal amount of configuration. Popular examples include [NGINX](https://nginx.org/) and [HAProxy](https://www.haproxy.org/). Cloud providers also offer these as hosted services you can simply deploy--for example, [AWS Elastic Load Balancer](https://aws.amazon.com/elasticloadbalancing/) or [Azure Load Balancer](https://learn.microsoft.com/en-us/azure/load-balancer/load-balancer-overview).
+Load balancers are fairly generic components, meaning they are typically open-source software programs that can be used "off the shelf" with just a minimal amount of configuration. Popular examples include [NGINX](https://nginx.org/) and [HAProxy](https://www.haproxy.org/). Cloud providers also offer these as hosted services you can simply deploy---for example, [AWS Elastic Load Balancer](https://aws.amazon.com/elasticloadbalancing/) or [Azure Load Balancer](https://learn.microsoft.com/en-us/azure/load-balancer/load-balancer-overview).
 
 Load balancers perform several jobs that are critical to building highly-scalable and reliable systems:
 
@@ -53,13 +53,13 @@ Because these kinds of HTTP servers expose a programming interface to applicatio
 
 ## "Serverless" Functions
 
-In a cloud computing environment (AWS, Azure, Google Cloud, etc.), API servers are usually deployed as a continuously-running virtual machine with a fixed amount of CPU and RAM. You pay for these machines as long as they are running, regardless of whether they are receiving requests, so they are like always leaving the lights on in a room--fine if people are always coming and going, but a bit of a waste if the room isn't used very often.
+In a cloud computing environment (AWS, Azure, Google Cloud, etc.), API servers are usually deployed as a continuously-running virtual machine with a fixed amount of CPU and RAM. You pay for these machines as long as they are running, regardless of whether they are receiving requests, so they are like always leaving the lights on in a room---fine if people are always coming and going, but a bit of a waste if the room isn't used very often.
 
-If your API is only used sporadically, you can often save money by turning them into so-called "serverless" functions. Essentially, the cloud provider operates a very large fleet of shared HTTP servers for you, each of which may contain a copy of your code, written as a simple handler function--that is, a function that accepts a parsed request as input, and returns whatever you want written as the response.
+If your API is only used sporadically, you can often save money by turning them into so-called "serverless" functions. Essentially, the cloud provider operates a very large fleet of shared HTTP servers for you, each of which may contain a copy of your code, written as a simple handler function---that is, a function that accepts a parsed request as input, and returns whatever you want written as the response.
 
 When a request is made to one of your APIs, it is routed to one of these shared HTTP servers. Since these servers are used by _everyone_, they don't have a copy of your code on them by default. Instead, a given server must download your code the first time it receives a request for your API. If your function is written in an interpreted or JIT-compiled language such as Python, JavaScript, Ruby, or even Java, the language runtime may also need to do some first-run initialization before it can start actually running your code.
 
-All of this potential delay is known as the **cold start problem**. It results in unusually high latency at seemingly random times--one request might take a few milliseconds, but an identical subsequent request might take several seconds, even though your code might have executed just as quickly.
+All of this potential delay is known as the **cold start problem**. It results in unusually high latency at seemingly random times---one request might take a few milliseconds, but an identical subsequent request might take several seconds, even though your code might have executed just as quickly.
 
 But the good news is that you are only charged for the CPU and resources used by your code while it was _actually running_. If your API gets only a few requests per-day, you only pay for those few short invocations, not the rest of the time when the HTTP server was processing other requests for other people.
 
@@ -95,7 +95,7 @@ Regardless of which type you use, it is common to **partition** or **"shard"** y
 
 ![diagram showing multiple HTTP server talking to multiple database partitions via a proxy](img/database-partition.png)
 
-Many of the hosted databases offered by cloud providers do this partitioning automatically--for example, both DynamoDB and Aurora automatically partition your data so that your data size can grow almost indefinitely. If you self-host your databases instead, look for an open-source partitioning proxy for your particular database engine (most have one).
+Many of the hosted databases offered by cloud providers do this partitioning automatically---for example, both DynamoDB and Aurora automatically partition your data so that your data size can grow almost indefinitely. If you self-host your databases instead, look for an open-source partitioning proxy for your particular database engine (most have one).
 
 Many database engines also support **clustering** where each partition consists of multiple physical servers working together as a single logical database. One server is typically elected to be the **primary** or **leader**. The others are known as **secondaries**, **followers**, or **read replicas**. Writes are always sent first to the primary, which replicates those writes to the secondaries. If strong durability is required, the primary will wait until a majority of the secondaries acknowledge the write before returning a response. If the secondaries are spread across multiple physical data centers, it then becomes extremely unlikely you will lose data, but your writes will take longer due to all the extra network hops.
 
