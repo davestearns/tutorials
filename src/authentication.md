@@ -7,7 +7,7 @@ In the [HTTP](http.md) tutorial, I discussed how its [stateless](http.md#statele
 
 ## Sessions
 
-Under the hood, HTTP is a stateless protocol, but that's not your typical user experience on the web. When you use social media, shop online, or pay bills electronically, you sign-in once, and then perform multiple operations as that authenticated user. You don't have to provide your credentials every time you do something that interacts with the server.
+Under the hood, HTTP is a stateless protocol that remembers nothing between requests, but that's not your typical user experience on the web. When you use social media, shop online, or pay bills electronically, you sign-in once, and then perform multiple operations as that authenticated user. You don't have to provide your credentials every time you do something that interacts with the server.
 
 This implies that you have some sort of authenticated session with the server, but if HTTP is stateless, how is that possible? If your sign-in request went to one [downstream server](building-blocks.md#load-balancers-and-api-gateways), but your subsequent request went to a different server, how does that different server know who you are?
 
@@ -24,11 +24,11 @@ We will dig into the details of each of these things below, but here is a brief 
 1. The server verifies the provided credentials against the account record.
 1. The server generates a unique identifier for the session, known as the **session ID**. This should be a random value that is effectively impossible to guess given previous examples---e.g., a 128 or 256-bit value from a [cryptographically-secure pseudorandom number generator (CSPRNG)](https://en.wikipedia.org/wiki/Cryptographically_secure_pseudorandom_number_generator).
 1. The server inserts a session record into the database (or cache) using the session ID as the primary key. The record also contains a time at which the session expires, the ID of the authenticated account, and any other data you want to associate with the session.
-1. The server generates a **digitally-signed session token** from the session ID, encodes it into an ASCII-safe text format (e.g., [base-64](https://en.wikipedia.org/wiki/Base64)).
+1. The server generates a **digitally-signed session token** from the session ID.
 1. The server includes this signed session token (not the bare session ID) in the response.
-1. The client holds on to this value, and sends it back in a header in all subsequent HTTP requests.
-1. When one of the servers receives the subsequent request, it extracts the session token from the request header and verifies the signature.
-1. The server extracts the session ID from the token, and loads the associated session record from the database (or cache) and ensures it hasn't already expired.
+1. The client holds on to this value, and sends it back to the server in all subsequent HTTP requests.
+1. When one of the servers receives the subsequent request, it verifies the session token's signature and extracts the session ID.
+1. The server loads the associated session record from the database (or cache) and ensures it hasn't already expired.
 1. The server now knows who the authenticated account is, and can decide if the current request is something that account is allowed to do.
 
 At a high level this is how authenticated sessions work over HTTP, but let's expand on each of these concepts in more detail.
@@ -54,9 +54,9 @@ Regardless of your account structure, when a customer creates an account they mu
 
 Typically systems start out requiring only an email and password. Email names are already unique, and account holders can prove their ownership of an email address by responding to a verification message sent by your system (more on that [below](#other-kinds-of-authorization-tokens)). Once verified, the email address can be used for notifications and account recovery. 
 
-But **don't use an email address as the account's primary key** in your database---people sometimes need to change their email address, for example when leaving a school or corporation. Use an [application-assigned ID](ids.md) for the account record, and store the email address as one of the account's credentials.
+But **don't use an email address as the account's primary key**---people sometimes need to change their email address, for example when leaving a school or corporation. Use an [application-assigned ID](ids.md) for the account record, and store the email address as one of the account's credentials.
 
-Passwords are again a classic design tradeoff. They are simple and familiar, and can be used anywhere the account holder happens to be, including shared computers or public kiosks. But they are also a shared secret, so if an attacker learns an account's password, they immediately gain unrestricted access. If people were disciplined about creating unique and strong passwords on each site, this might be OK, but sadly most people are not. Even those who are can be tricked into revealing their passwords on phishing sites that look like the real sign-in pages of popular services.
+Passwords are again a classic design tradeoff. They are simple and familiar, and can be used anywhere the account holder happens to be, including shared computers or public kiosks. But they are also a shared secret, so if an attacker learns an account's password, they immediately gain unrestricted access. If people were disciplined about creating unique and strong passwords on each site and keeping them secret, this might be OK, but sadly most people are not. Even those who are can be tricked into revealing their passwords on phishing sites that look like the real sign-in pages of popular services.
 
 ### Something You Are: Passkeys
 
@@ -64,7 +64,7 @@ Thankfully there is now an alternative to passwords that is well supported by th
 
 Passkeys are relatively simple to understand in principle, but their actual implementation can get complex, so you should definitely leverage the [official libraries](https://passkeys.dev/docs/tools-libraries/libraries/) for your client and server programming languages. To help you understand how they work, let's look at a simplified version of the sign-up flow:
 
-[![](https://mermaid.ink/img/pako:eNp9kk2PmzAQhv-K5UNPkLIhhICqSBG57K0SyqXi4pgJsQq264920yj_veOQLNndtlxgmHfemXnsM-WqBVpSCz88SA5bwTrDhkYSfPbqhVS9AOnGWDPjBBeaSUd2hFmys2A-pqqQ2mjdC86cUPKjYnNVeHdE6yBSNxeQ7dS5BvPzb_b1tfjr8z8F2yDYMsf2zMI74yper-uSmLCudVhm7Xc4YdwJ68zDuHWMyioorVayJb-EOxKpEBFhGCqc3RClQ4EdK6YGm6mBU4QbYA7Cqw3rsn4UblC4K8leqAGcEZywicfrFLt4tMM9xUGAJeLq4U53j_uQzhtpifZ7hE5wo-ihH3neNvLN-hZ5_E88AlivtyjFw4FHZ_Lpy958XiNixrnyyPv9ZhO6CSqxnnOw9uD7G9L70VTxCMKKTsZeE64G3YPDLI3oAGZgosULeg7qhiKiARpa4mcLB-Z719BGXlCK-FR9kpyWzniIqFG-O9LywHqLkdctHsLtdr_-7UzwvumRCZgqbETLVRZRvEvflBrueQxpeaYvtHzKs9lysciz1SrPilWyzCN6wt9JOpsv07RIsiQr5sVidYno76tDMsuzdFHkaTLP0vlTsbz8AV7jITY?type=png)](https://mermaid.live/edit#pako:eNp9kk2PmzAQhv-K5UNPkLIhhICqSBG57K0SyqXi4pgJsQq264920yj_veOQLNndtlxgmHfemXnsM-WqBVpSCz88SA5bwTrDhkYSfPbqhVS9AOnGWDPjBBeaSUd2hFmys2A-pqqQ2mjdC86cUPKjYnNVeHdE6yBSNxeQ7dS5BvPzb_b1tfjr8z8F2yDYMsf2zMI74yper-uSmLCudVhm7Xc4YdwJ68zDuHWMyioorVayJb-EOxKpEBFhGCqc3RClQ4EdK6YGm6mBU4QbYA7Cqw3rsn4UblC4K8leqAGcEZywicfrFLt4tMM9xUGAJeLq4U53j_uQzhtpifZ7hE5wo-ihH3neNvLN-hZ5_E88AlivtyjFw4FHZ_Lpy958XiNixrnyyPv9ZhO6CSqxnnOw9uD7G9L70VTxCMKKTsZeE64G3YPDLI3oAGZgosULeg7qhiKiARpa4mcLB-Z719BGXlCK-FR9kpyWzniIqFG-O9LywHqLkdctHsLtdr_-7UzwvumRCZgqbETLVRZRvEvflBrueQxpeaYvtHzKs9lysciz1SrPilWyzCN6wt9JOpsv07RIsiQr5sVidYno76tDMsuzdFHkaTLP0vlTsbz8AV7jITY)
+[![](https://mermaid.ink/img/pako:eNp9U02PmzAQ_SuWDz2RlA0hBKuKFIXL3iqhXCoujhmIVbCpP7qbRvnvHSBZstluucB43nszb8acqdAlUEYt_PKgBGSS14a3hSL4HPQr2TUSlBvjjhsnhey4cmRPuCV7C-Zjatentl3XSMGd1OojYjsgvDuidA_SVxVQ5VQ5B_P7X_L5QP7-_Ckg6wEZd_zALTwI72abTc6I6e1ahzRrf8IJ41paZ-7azWeI3DGiNE6FcFUS3fVZO6YntS0jwgB30L_K3hBvvh3M182LdMfP6Fsk7hk5SN2CM1IQPg3jrYX9bJSvOEpoQyqpajCdkejRCq5uUmOjuD1z6hyUY81g6KHzB9wCQYvBXXvkOSvUu3k8ksl_iON0BloJA-2RPvgVusWlwITPGHkxEuc0aZMvqDg0ihvjQmiP1qZy7zdxvyNivRBgbeWbm49xolbWaua7oXoDDsvTgLZgWi5LvObnHl1QnHULBWX4WULFfeMKWqgLQnEPOj8pQZkzHgJqtK-PlFW8sRj5rsRFX_-Rt9Pa9NpXPN40MLveCGVJnAQUr-QPrdsbAEPKzvSVsqcknq-WyyRer5M4XYcrBJ_wOIzmi1UUpWEcxukiXa4vAf0zKITzJI6WaRKFizhaPKWry1-Uvzg0?type=png)](https://mermaid.live/edit#pako:eNp9U02PmzAQ_SuWDz2RlA0hBKuKFIXL3iqhXCoujhmIVbCpP7qbRvnvHSBZstluucB43nszb8acqdAlUEYt_PKgBGSS14a3hSL4HPQr2TUSlBvjjhsnhey4cmRPuCV7C-Zjatentl3XSMGd1OojYjsgvDuidA_SVxVQ5VQ5B_P7X_L5QP7-_Ckg6wEZd_zALTwI72abTc6I6e1ahzRrf8IJ41paZ-7azWeI3DGiNE6FcFUS3fVZO6YntS0jwgB30L_K3hBvvh3M182LdMfP6Fsk7hk5SN2CM1IQPg3jrYX9bJSvOEpoQyqpajCdkejRCq5uUmOjuD1z6hyUY81g6KHzB9wCQYvBXXvkOSvUu3k8ksl_iON0BloJA-2RPvgVusWlwITPGHkxEuc0aZMvqDg0ihvjQmiP1qZy7zdxvyNivRBgbeWbm49xolbWaua7oXoDDsvTgLZgWi5LvObnHl1QnHULBWX4WULFfeMKWqgLQnEPOj8pQZkzHgJqtK-PlFW8sRj5rsRFX_-Rt9Pa9NpXPN40MLveCGVJnAQUr-QPrdsbAEPKzvSVsqcknq-WyyRer5M4XYcrBJ_wOIzmi1UUpWEcxukiXa4vAf0zKITzJI6WaRKFizhaPKWry1-Uvzg0)
 
 1. The client makes a request to the server to create a new passkey for the account.
 1. The server responds with a unique and unguessable value, which is typically called a 'nonce'.
@@ -76,7 +76,7 @@ Passkeys are relatively simple to understand in principle, but their actual impl
 Signing in works almost the same way, except that the key pair is already generated and the server already has the public key, so it only needs to verify the encrypted nonce against the previously-stored public key.
 
 1. The client requests to sign-in.
-1. The server responds with a unique and unguessable nonce.
+1. The server responds with the previously recorded passkey ID and a unique and unguessable nonce.
 1. The client application asks the Authenticator to encrypt the nonce with the previously created private key. This triggers the device's biometric sensors to authenticate the person using the device.
 1. The client sends the encrypted nonce and the passkey ID to the server.
 1. The server loads the previously-stored public key associated with the passkey ID, and uses it to decrypt the encrypted nonce, comparing the result to the nonce sent in step 2.
@@ -84,9 +84,9 @@ Signing in works almost the same way, except that the key pair is already genera
 
 Most client devices will now synchronize passkeys across devices signed into the same account. For example, Apple devices will share passkeys with all other Apple devices signed into the same iCloud account. This allows you to sign-in on your phone with a passkey originally created on your laptop, or vice-versa.
 
-Passkeys will likely become the new standard for authentication, but they are still relatively new and unfamiliar, and some of your potential customers might not yet have a device capable of generating or using a passkey. Even if they do, if the device manufacturer doesn't offer a mechanism to backup and sync passkeys, your customers will lose access if their device is lost, stolen, or damaged. Without another credential, like an email and password, they may not be able to prove their identity during an account recovery flow.
+Passkeys will likely become the new standard for authentication, but they are still relatively new and unfamiliar (in 2025), and some of your potential customers might not yet have a device capable of generating or using a passkey. Even if they do, if the device manufacturer doesn't offer a mechanism to backup and sync passkeys, your customers will lose access if their device is lost, stolen, or damaged. Without another credential, like an email and password, they may not be able to prove their identity during an account recovery flow.
 
-That said, password managers like 1Password can act as software-based passkey Authenticators on devices that lack native passkey support. They also backup those keys to the cloud, and synchronize them across all kinds of devices from various manufacturers. Their mobile apps can even scan QR codes shown on a public computer screen (e.g., check-in kiosk) to perform passkey authentication via your phone. So passkeys can be used in a wide variety of scenarios provided your target customers are willing to install a password manager when needed.
+That said, password managers like 1Password can act as software-based passkey Authenticators on devices that lack native passkey support. They also backup those keys to the cloud, and synchronize them across all kinds of devices from various manufacturers. Their mobile apps can even scan QR codes shown on a public computer screen (e.g., check-in kiosk) to perform passkey authentication via your phone. So passkeys can be used in a wide variety of scenarios provided your target customers are willing to install a password manager app on devices that lack native passkey support.
 
 ### Something You Have: Phones and Hardware Keys
 
@@ -102,14 +102,14 @@ These extra credentials are typically prompted for after successfully authentica
 
 If you do collect password credentials from your account holders, _never store those passwords in plain text_! Sadly, [several major sites in the early 2000s did just this](https://www.reddit.com/r/netsec/comments/hy1n9/154_websites_that_store_your_password_in_plain/), and after they were hacked, millions of passwords were leaked on the Internet.
 
-Instead, you should always hash passwords using an approved password-hashing algorithm, and only store the resulting hash in your database. As I discussed in the [cryptography](crypto.md#cryptographic-hashing) tutorial, hashing is a good way to store data that you don't need to reconstruct, but you do need to verify in the future. Because hashing algorithms are deterministic, the same password provided during a subsequent sign-in will hash to the same value as the one stored in your database. But because they are also irreversible, an attacker can't directly recompute the original password from a stolen hash.
+Instead, you should always hash passwords using an approved password-hashing algorithm, and only store the resulting hash in your database. As I discussed in the [cryptography](crypto.md#cryptographic-hashing) tutorial, hashing is a good way to store data that you don't need to reconstruct, but you do need to verify in the future. Because hashing algorithms are deterministic, the same password provided during sign-in will hash to the same value as the password supplied during sign-up. But because they are also irreversible, an attacker can't directly recompute the original password from a stolen hash.
 
-I say "directly" because it is of course possible for an attacker to simply hash every known password and compare these pre-computed results to the stolen hash. This is why password hashing algorithms differ from ordinary hashing algorithms like SHA-256 in two important ways:
+I say "directly" because it is of course possible for an attacker to simply hash every known password and compare these pre-computed results to a stolen hash. This is why password hashing algorithms differ from ordinary hashing algorithms like SHA-256 in two important ways:
 
 - They add a unique and unguessable 'salt' value to each password before hashing it.
-- They are purposely designed to be relatively slow, though still fast enough to be used during sign-in.
+- They are purposely designed to be relatively slow, and allow you to increase their complexity as computing speeds increase to keep them relatively slow.
 
-The combination of these two qualities makes it impossible for attackers to use pre-computed hashes on a new batch of stolen password hashes, and prohibitively slow for those attackers to recompute hashes for all known passwords plus a given salt value. They can still do a brute-force attack given enough time, but the forced delay also gives you time to discover the breach, revoke all existing authenticated sessions, and force your customers to reset their passwords.
+The first quality prohibits attackers from comparing pre-computed hashes of known passwords to a new batch of stolen hashes, because those pre-computed hashes don't include the unique salt values. The second quality makes recomputing the hashes for all known passwords plus those unique salt values prohibitively slow. This discourages attackers from attempting this sort of brute-force attack, and gives you time to detect the breach, revoke all existing authenticated sessions, and invalidate all existing passwords.
 
 The currently recommended password hashing algorithm (in 2025) is [argon2](https://en.wikipedia.org/wiki/Argon2). Libraries are available for all major programming languages, and most are very easy to use. Typically the implementation will generate the salt value automatically, and return an encoded string containing the salt value as well as the hash. Store that in your database, and feed it back into the verify method to verify a password provided during sign-in.
 
@@ -118,6 +118,8 @@ In Python, it's a simple as this:
 ```python
 from argon2 import PasswordHasher, VerificationError
 
+# To make it slower, set time_cost argument to
+# a value higher than the default (currently 3)
 hasher = PasswordHasher()
 
 # During sign-up...
@@ -150,7 +152,7 @@ session_id = secrets.randbits(128)
 
 Other programming languages offer similar functionality, so ask your favorite AI tool how to do it in your chosen language.
 
-To digitally sign this value, use a symmetric digital signature algorithm like [HMAC](https://en.wikipedia.org/wiki/HMAC). This algorithm requires a key that you need to keep secret on the server, but since the server is the only thing signing and verifying, that is relatively easy to do. In Python, the code looks like this:
+To digitally sign this value, use a symmetric digital signature algorithm like [HMAC](https://en.wikipedia.org/wiki/HMAC). This algorithm requires a key that must be kept secret on the server, but since the server is the only thing signing and verifying, that is relatively easy to do. In Python, the code looks like this:
 
 ```python
 import os
@@ -177,8 +179,8 @@ Now that you have the ID and a digital signature for that ID, you can combine th
 ```python
 from base64 import urlsafe_b64decode
 
-combined = signature + session_id_bytes
-token = urlsafe_b64encode(combined).decode("ascii")
+binary_token = signature + session_id_bytes
+token = urlsafe_b64encode(binary_token).decode("ascii")
 ```
 
 When the client sends this token back to your server during subsequent requests, you can verify it using code like this:
@@ -215,7 +217,7 @@ Note that we use `compare_digest()` here and not a simple `==` comparison. The f
 
 Now that you have a session token, the remaining question is how should we transmit it in the HTTP response to the client, and how should the client send it back in subsequent HTTP requests? There are two primary options:
 
-- **Secure HTTP-Only Cookie:** automatic, easy, delicious, and secure when your API used only by your own client applications, or a well-known set of origins.
+- **Secure HttpOnly Cookie:** automatic, easy, delicious, and secure when your API used only by your own client applications, or a well-known set of origins.
 - **Authorization Header:** manual, but may be more secure when your API can be used by web applications served from _any_ origin.
 
 ### Cookies
@@ -224,21 +226,21 @@ HTTP already has a built-in mechanism for values that should be sent back and fo
 
 When setting cookies, servers can specify a set of options that control how the browser/library treats that cookie during subsequent requests. The most import ones for authenticated sessions are:
 
-- **HttpOnly:** If set, the cookie can't be accessed by client-side JavaScript running in a browser. This protects your session tokens from [XSS](https://owasp.org/www-community/attacks/xss/) attacks that try to steal valid tokens from signed-in users.
+- **HttpOnly:** If set, the cookie can't be accessed by client-side JavaScript running in a browser. This protects your session tokens from [Cross-Site Scripting (XSS)](https://owasp.org/www-community/attacks/xss/) attacks that try to steal valid tokens from signed-in users.
 - **Secure:** If set, the browser/library will send the cookie only when making requests over encrypted HTTPS, not unencrypted HTTP. This protects your session tokens from being intercepted by attackers sitting between clients and your servers.
 - **SameSite=[Strict|Lax|None]:** If your API is used only by a web client served from the same origin as your API, set `SameSite=Strict`. This causes the browser to send the cookie only when the current page came from the same origin as the original response cookie containing the session token.
 
-If your API can be used from web applications served from multiple origins, but that set is constrained and well-known, you can't set `SameSite=Strict`, but you can check the `Origin` header in subsequent requests against your allowed list of origins. If it's not in the set, you should ignore the session token cookie and assume the request is unauthenticated.
+If your API can be used from web applications served from multiple origins, but that set is constrained and well-known, you can't set `SameSite=Strict`, but you can check the `Origin` header received by your API servers against your allowed list of origins. If it's not in the set, you should ignore the session token cookie and assume the request is unauthenticated.
 
 But if your API can be used from web applications served from _any_ origin, cookies become vulnerable to [Cross-Site Request Forgery (CSRF)](https://owasp.org/www-community/attacks/csrf) attacks. For example, if an account holder is signed-in to your API, and is then tricked into loading a page from `evil.com`, the JavaScript in that page can make `fetch()` requests to your API, and the browser will happily send the session token cookie along, making the request look authenticated. The `Origin` header will be `evil.com` but if your API is designed to be used by _any origin_ you can't deny the request. In this case, it might be better to consider a different approach:
 
 ### Authorization Header
 
-HTTP also defines another header named `Authorization` that is intended to carry authorization tokens, but it is entirely manual. Browsers and HTTP client libraries will parse it and make it available to client code, but won't store it or automatically send it back to the same origin.
+HTTP also defines another header named `Authorization` that is intended to carry authorization tokens, but it is entirely manual. Browsers and HTTP client libraries will parse it and make it available to client code, but won't store it nor automatically send it back to the same origin. Instead, your client code must extract the token from this response header, store it, and manually add it as the `Authorization` header in each subsequent `fetch()` request.
 
 This avoids the CSRF vulnerability of cookies when your API can be used by any origin, but it introduces a different vulnerability. You can store the session token in the browser's local storage, which is segmented and protected by origin, but if an attacker can _inject_ code into one of the legitimate web clients, that code would run under the same origin and could thus steal session tokens from local storage.
 
-This form of attack is called [Cross-Site Scripting (XSS)](https://owasp.org/www-community/attacks/xss/) and it's easy to pull of if just one of the legitimate web clients displays user-generated content and doesn't properly sanitize it. For example, if an attacker can submit a comment containing JavaScript, and if the site renders that to HTML without sanitizing it, that JavaScript will run within the same origin as the web app, and can then steal things from that origin's part of local storage.
+This form of attack is called [Cross-Site Scripting (XSS)](https://owasp.org/www-community/attacks/xss/) and it's easy to pull of if one of your legitimate web clients displays user-generated content that isn't properly sanitized. For example, if an attacker can submit a comment containing JavaScript, and if the site renders that to HTML without sanitizing it, that JavaScript will run within the same origin as the web app, and can then steal things from that origin's part of local storage.
 
 Thankfully modern client-side web application frameworks like React do sanitizing automatically, and one must [explicitly bypass it](https://react.dev/reference/react-dom/components/common#dangerously-setting-the-inner-html) to do otherwise. This significantly reduces the risk of XSS attacks, as most web applications these days are built using such frameworks.
 
@@ -246,7 +248,7 @@ Thankfully modern client-side web application frameworks like React do sanitizin
 
 If you are building an API that can be used by any origin, and you can't count on your web clients using these modern frameworks, you can use a technique called **multi-level authentication** to reduce the damage an attacker could do with a session token stolen from local storage. 
 
-With this approach, the session token in local storage only grants authorization to relatively insensitive resources---for example, you can maybe read content posted by friends, but you can't interact with billing details or change account configuration. This session associated with this token can have an expiration far in the future, and that expiration can even be extended each time the token is used on the server.
+With this approach, the session token in local storage only grants authorization to relatively insensitive resources---for example, you can maybe read content posted by friends, but you can't interact with billing details or change account configuration. The session associated with this token can be fairly long-lived (expires far in the future).
 
 To access more sensitive resources, the client must authenticate again to gain a higher-level session token that expires very quickly. This higher-level token is only kept in the client's volatile memory and is never written to local storage.
 
@@ -254,28 +256,29 @@ If an attacker is able to pull off an XSS attack, they might be able to use the 
 
 ## Session Expiration and Revocation
 
-I mentioned earlier that the session records written to your database should have an expiration time so that the tokens associated with them have a bounded lifetime. When your API servers receive a valid session token and attempt to load the associated session record, you can simply apply a `WHERE` clause to the query to filter out sessions that have already expired. If you don't find the record, the session either doesn't exist or has expired. In either case, you should return a `401 Unauthorized` error.
+I mentioned earlier that the session records written to your database should have an expiration time so that the tokens associated with them have a bounded lifetime. When your API servers receive a valid session token and attempt to load the associated session record, you can simply apply a `WHERE` clause to the query to filter out sessions that have already expired. If you don't find the record, the session either doesn't exist or has expired. In either case, you should return a `401 Unauthorized` response.
 
 But in some cases you may want sessions to expire only after a period of _inactivity_. For example, you might want the session to stay active as long as the client keeps making requests, but expire an hour after the last request you received. In these cases, simply update the session record each time it is loaded with a new expiration time set to one hour from now.
 
-Lastly, when a user signs out, or when you need to forcibly end all sessions for an account that has been compromised, either delete the session records altogether, or update the expiration time to now (or to be safe, a few minutes before now, to accommodate some clock skew between your API servers). Updating the expiration and keeping the records around allows you to do forensic and usage analytics in the future, but you will naturally pay for the extra data storage.
+Lastly, when a user signs out, or when you need to forcibly end all sessions for an account that has been compromised, either delete the session records altogether, or update the expiration time to now (or to be safe, a few minutes before now, to accommodate some clock skew between your API servers). Updating the expiration and keeping the records around allows you to do forensic and usage analytics in the future, but you will naturally pay for the extra data storage, so you may want to eventually archive and delete those records after a year or so.
 
 ## Other Kinds of Authorization Tokens
 
-Session tokens are actually a specific form of a more general concept known as **authorization tokens**. These are tokens that, once verified, authorize access to something without requiring authentication. A verified session token actually authorizes access to the session state, which happens to contain the previously-authenticated account, but it's really just an authorization token in the end.
+Session tokens are actually a specific form of a more general concept known as **authorization tokens**. These are tokens that, once verified, authorize access to something without providing authentication credentials. A verified session token actually authorizes access to the session state, which happens to contain the previously-authenticated account, but it's really just an authorization token in the end.
 
 Authorization tokens, like session tokens, have the following qualities:
 
 - They contain a unique, unguessable value.
 - They also contain a digitally signature of that value, generated using a signing key known only to the server.
-- They may be associated with an existing account in the database.
+- They may be associated with an existing account in the database, but are sometimes used by anonymous clients.
+- They typically expire at some point, often quickly if they allow access to sensitive resources or operations.
 - They may be deleted/consumed after first use.
 
 Other examples of authorization tokens include:
 
 - **Email/Phone Verification:** Many systems will ask you to verify your email address or phone number by sending a message to that address/number with a link. The link contains an authorization token that was previously created, signed, and associated with your account. If the submitted token signature is valid, it proves you have control over that email account or phone number. These tokens are typically deleted immediately after they are used to prevent replay attacks.
-- **Account Recovery:** If you forget your password or lose your passkey, most systems will send an email to the account's email address containing a link you can click to recover your account. Just like the verification scenario, that link will contain an authorization token. When you follow the link, the server will verify the token, and then let you reset your password or create a new passkey. These tokens are also typically deleted immediately after use.
-- **Public Access Keys:** When you share a document with "anyone who has the link," or create a video conference meeting link, those contain an authorization token that lets anonymous users access the document or join the call. The server will verify the signature on the token, but since it's not associated with just one account, and can be used multiple times, the server won't delete the token until it expires (if ever).
+- **Account Recovery:** If you forget your password or lose your passkey, most systems will send an email to your account's email address containing a link you can click to recover your account. Just like the verification scenario, that link will contain an authorization token. When you follow the link, the server will verify the token, and then let you reset your password or create a new passkey. These tokens are also typically deleted immediately after use.
+- **Public Access Keys:** When you share a document with "anyone who has the link," or create a video conference meeting link, those contain an authorization token that lets anonymous users access the document or join the call. The server will verify the signature on the token, but since it's not associated with an account, and can be used multiple times, the server won't delete the token until it expires (if ever).
 - **Magic Sign-In Links:** Some low-risk systems will let account holders sign-in by requesting a magic link sent to their registered email address or phone number. Just as in the verification scenario, that link will contain a one-time-use authorization token. When the account holder follows the link, the server verifies the token, starts a new authenticated session, and deletes the token.
 
 Since these kinds of authorization tokens are really the same thing as session tokens, you can use the same code to generate and verify them!
