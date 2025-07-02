@@ -3,15 +3,17 @@
 In the [HTTP](http.md) tutorial, I discussed how its [stateless](http.md#stateless-protocol) nature is a classic software tradeoff---it enables good things like horizontal scaling, but it also makes things like authenticated sessions more difficult to support. In this tutorial I will show you how to support authenticated sessions over HTTP, which is actually a specific case of a more general problem: secure authorization tokens.
 
 > [!IMPORTANT]
-> This tutorial assumes you have a basic understanding of cryptographic hashing and digital signatures. If you don't, please read the [intro to cryptography](crypto.md) tutorial first.
+> This tutorial assumes you have a basic understanding of HTTP, cryptographic hashing, and digital signatures. If you don't, please read the [HTTP](http.md) and [Intro to Cryptography](crypto.md) tutorials first.
 
 ## Sessions
 
-Under the hood, HTTP is a stateless protocol, but that's not your typical user experience on the web. When you use social media, or shop online, or pay bills electronically, you sign-in once, and then perform multiple operations as that authenticated user. You don't have to provide your credentials every time you do something that interacts with the server.
+Under the hood, HTTP is a stateless protocol, but that's not your typical user experience on the web. When you use social media, shop online, or pay bills electronically, you sign-in once, and then perform multiple operations as that authenticated user. You don't have to provide your credentials every time you do something that interacts with the server.
 
 This implies that you have some sort of authenticated session with the server, but if HTTP is stateless, how is that possible? If your sign-in request went to one [downstream server](building-blocks.md#load-balancers-and-api-gateways), but your subsequent request went to a different server, how does that different server know who you are?
 
-Although we can't keep any state on the server related to the network connection, we can pass something back and forth between the client and the servers. This value is effectively a key to session state stored in a server-side database or cache, encoded into a secure token. The flow goes like this:
+Although we can't keep any state on the server related to the network connection, we can pass something back and forth on that connection. This value is the ID of a session state record stored in our database (or cache) that all of our API servers can load when needed. That ID is bundled together with a [digital signature](crypto.md#digital-signatures) into a session token, which protects it against tampering.
+
+The typical sign-in flow goes like this:
 
 [![](https://mermaid.ink/img/pako:eNp1Uj1z6jAQ_Cuaqw3PJtgYTYYmNKnTZdwI6TCaYMnRRxLC8N_fCXAIA3EjS7t7qz3dHqRVCBw8vkc0EpdatE50jWH09cIFLXUvTGCSCc-ethpNuAV9Al_QfaC7BVUClyKIlfB4guVosfCced2akTbsU4fN48r9W0iHigy02PoT0RNRceZQUBUpbRzc1ehU4nxIDGmduogIosvo9Y79qnn0aNGgEwGZR--1Nex5eeX16fQVeBQJo5gPpLpyuJSiIKh-RMG-oRmYRJUpge-t8XjJeoc8tCWuTs-RYtHqw1GQlPctfsf9gzA08QxfN3HQ3CYUMWys09843OS2Yu_0R-oBJbTRSYn3g0MGHbpOaEXTtk-cBsIGO2yA06_CtYjb0EBjDkQlX_uyMxJ4cBEzcDa2G-BrekTaxV6R43lUf05bl2qf-WgUuqc0GsCns1kGNIqv1nYDgbbA9_AFvJgX43xaTiZlXuTzuqyqDHbA63Jcl9NZnVcPVVUVeXnI4PtYIB_P5g_ErOq6mJQETQ__AfOuErk?type=png)](https://mermaid.live/edit#pako:eNp1Uj1z6jAQ_Cuaqw3PJtgYTYYmNKnTZdwI6TCaYMnRRxLC8N_fCXAIA3EjS7t7qz3dHqRVCBw8vkc0EpdatE50jWH09cIFLXUvTGCSCc-ethpNuAV9Al_QfaC7BVUClyKIlfB4guVosfCced2akTbsU4fN48r9W0iHigy02PoT0RNRceZQUBUpbRzc1ehU4nxIDGmduogIosvo9Y79qnn0aNGgEwGZR--1Nex5eeX16fQVeBQJo5gPpLpyuJSiIKh-RMG-oRmYRJUpge-t8XjJeoc8tCWuTs-RYtHqw1GQlPctfsf9gzA08QxfN3HQ3CYUMWys09843OS2Yu_0R-oBJbTRSYn3g0MGHbpOaEXTtk-cBsIGO2yA06_CtYjb0EBjDkQlX_uyMxJ4cBEzcDa2G-BrekTaxV6R43lUf05bl2qf-WgUuqc0GsCns1kGNIqv1nYDgbbA9_AFvJgX43xaTiZlXuTzuqyqDHbA63Jcl9NZnVcPVVUVeXnI4PtYIB_P5g_ErOq6mJQETQ__AfOuErk)
 
@@ -21,12 +23,12 @@ We will dig into the details of each of these things below, but here is a brief 
 1. The server loads the account record associated with those credentials from the database.
 1. The server verifies the provided credentials against the account record.
 1. The server generates a unique identifier for the session, known as the **session ID**. This should be a random value that is effectively impossible to guess given previous examples---e.g., a 128 or 256-bit value from a [cryptographically-secure pseudorandom number generator (CSPRNG)](https://en.wikipedia.org/wiki/Cryptographically_secure_pseudorandom_number_generator).
-1. The server inserts a Session record into the database (or cache) using the session ID as the primary key. The record also contains the ID of the authenticated account, and any other data you want to associate with the session.
+1. The server inserts a session record into the database (or cache) using the session ID as the primary key. The record also contains a time at which the session expires, the ID of the authenticated account, and any other data you want to associate with the session.
 1. The server generates a **digitally-signed session token** from the session ID, encodes it into an ASCII-safe text format (e.g., [base-64](https://en.wikipedia.org/wiki/Base64)).
 1. The server includes this signed session token (not the bare session ID) in the response.
 1. The client holds on to this value, and sends it back in a header in all subsequent HTTP requests.
 1. When one of the servers receives the subsequent request, it extracts the session token from the request header and verifies the signature.
-1. The server extracts the session ID from the token, and loads the associated Session record from the database (or cache). 
+1. The server extracts the session ID from the token, and loads the associated session record from the database (or cache) and ensures it hasn't already expired.
 1. The server now knows who the authenticated account is, and can decide if the current request is something that account is allowed to do.
 
 At a high level this is how authenticated sessions work over HTTP, but let's expand on each of these concepts in more detail.
@@ -38,23 +40,23 @@ To use your system, a customer (person, corporation, or agent) needs to create a
 - A given customer will probably create multiple accounts. For example, it's common to create separate work and personal accounts if your system could be used for both purposes.
 - A given account will probably be used by multiple people, especially if your service costs money. Nearly every media streaming service learned this the hard way.
 
-You can avoid some of these issues by designing your accounts to be **hierarchical** from the start. For example, let customers create one main account to handle the service subscription and billing centrally, and then create child accounts for each of their family members, or for different roles, perhaps with restricted permissions. The same setup would be applicable for corporation with multiple subsidiaries, or a platform with multiple customers of their own.
+You can avoid some of these issues by designing your accounts to be **hierarchical** from the start. For example, let customers create one main account to handle the service subscription and billing centrally, and then create child accounts for each of their family members, perhaps with restricted permissions. The same setup would be applicable for corporation with multiple subsidiaries, or a platform with multiple customers of their own, or a person using your system for both business and personal reasons.
 
 Existing accounts should also be able to band together under a new parent account for centralized billing and monitoring---e.g., when two corporations merge, or when two people with individual accounts get married and want to take advantage of a family sharing discount.
 
-The authorization rules for parent accounts will depend on your particular system. In some cases it will make sense to let parent accounts view all resources that belong to child accounts, but in others those child resources might need to remain private. In some cases it might also make sense for parent accounts to create new resources or adjust configuration on behalf of their child accounts, and in others this should not be allowed. Think about what would make sense in your scenario and move forward accordingly.
+The authorization rules for parent accounts will depend on your particular system. In some cases it will make sense to let parent accounts view all resources that belong to child accounts, but in others those child resources might need to remain private. In some cases it might also make sense for parent accounts to create new resources or adjust configuration on behalf of their child accounts, and in others this should not be allowed. Think about what would make sense in your scenario and design your authorization rules accordingly.
 
 ## Credentials
 
-Regardless of your account structure, when a customer creates an account they must also provide some **credentials** they can use to prove their identity when signing in again in the future. These credentials are something the customer knows (password), something customer has (phone or hardware security key), or something customer is (biometrics tied to a passkey). Systems that manage particularly sensitive data might require multiple of these.
+Regardless of your account structure, when a customer creates an account they must also provide some **credentials** they can use to prove their ownership of that account. These credentials are something the customer knows (password), something customer has (phone or hardware security key), or something customer is (biometrics tied to a passkey). Systems that manage particularly sensitive data might require multiple of these.
 
 ### Something You Know: Email and Password
 
-Typically systems start out requiring only an email and password. Email names are already unique, and account holders can prove their ownership of that email address by sending them a verification email (more on that [below](#other-kinds-of-authorization-tokens)). Once verified, the email address can be used for notifications and account recovery. 
+Typically systems start out requiring only an email and password. Email names are already unique, and account holders can prove their ownership of an email address by responding to a verification message sent by your system (more on that [below](#other-kinds-of-authorization-tokens)). Once verified, the email address can be used for notifications and account recovery. 
 
-But **don't use an email address as the account's primary key** in your database---people sometimes need to change their email address, for example when leaving a school or corporation. Use an [application-assigned ID](ids.md) for the account, and store the email address as part of the account's credentials.
+But **don't use an email address as the account's primary key** in your database---people sometimes need to change their email address, for example when leaving a school or corporation. Use an [application-assigned ID](ids.md) for the account record, and store the email address as one of the account's credentials.
 
-Passwords are again a classic design tradeoff. They are simple and familiar, and can be used anywhere the account holder happens to be, including shared computers or public kiosks. But they are also a shared secret, so if an attacker learns an account's password, they immediately gain unrestricted access. This would be OK if people were disciplined about creating unique and strong passwords on each site, but sadly most people are not. Even those who are can be tricked into revealing their passwords on phishing sites that look like the real sign-in pages of popular services.
+Passwords are again a classic design tradeoff. They are simple and familiar, and can be used anywhere the account holder happens to be, including shared computers or public kiosks. But they are also a shared secret, so if an attacker learns an account's password, they immediately gain unrestricted access. If people were disciplined about creating unique and strong passwords on each site, this might be OK, but sadly most people are not. Even those who are can be tricked into revealing their passwords on phishing sites that look like the real sign-in pages of popular services.
 
 ### Something You Are: Passkeys
 
@@ -90,9 +92,9 @@ That said, password managers like 1Password can act as software-based passkey Au
 
 If your system manages particularly sensitive data, you might want to require another credential that is something the account holder _has_. For example:
 
-- **mobile phone with text messaging:** The account holder can register a mobile phone number during sign-up, and during sign-in your system can send a unique, unguessable, one-time use code via text messaging that the account holder must enter into a challenge form. This benefits from the ubiquity of text messaging, but it's also not as secure, as SMS text messages are not encrypted and can be intercepted.
-- **authenticator app:** The account holder can install an authenticator application on their phone or laptop, add your site during sign-up, and provide the current code shown on the screen during sign-in. During sign-up your server provides a seed value, and the algorithm generates time-based codes from that seed that rotate every 30 seconds or so. Since both your server and the authenticator app know the initial seed value, both can generate the same codes, so your server knows which code should be provided at any given time. But if an attacker learns that seed value, they too can generate valid codes.
-- **hardware key:** A physical USB device like a [Yubikey](https://www.yubico.com/) can provide either time-based codes like an authenticator app, or act like a passkey described above (preferred). Since it plugs into a USB port, and is relatively small, account holders can carry the key with them and plug it into any device they happen to be using. Newer keys also work with mobile devices that support Near Field Communication (NFC), which is the same technology used for mobile payments.
+- **mobile phone with text messaging (ok):** The account holder can register a mobile phone number during sign-up, and during sign-in your system can send a unique, unguessable, one-time use code via text messaging that the account holder must enter into a challenge form. This benefits from the ubiquity of text messaging, but it's also not as secure, since SMS text messages are not encrypted and can be intercepted.
+- **authenticator app (better):** The account holder can install an authenticator application on their phone or laptop, add your site during sign-up, and provide the current code shown on the screen during sign-in. During sign-up your server provides a seed value, and the algorithm generates time-based codes from that seed that rotate every 30 seconds or so. Since both your server and the authenticator app know the initial seed value, both can generate the same codes, so your server knows which code should be provided at any given time. But if an attacker learns that seed value and knows the algorithm, they too can generate valid codes.
+- **hardware key (best):** A physical USB device like a [Yubikey](https://www.yubico.com/) can provide either time-based codes like an authenticator app, or act like a passkey described above (preferred). Since it plugs into a USB port, and is relatively small, account holders can carry the key with them and plug it into any device they happen to be using. Newer keys also work with mobile devices that support Near Field Communication (NFC), which is the same technology used for mobile payments.
 
 These extra credentials are typically prompted for after successfully authenticating with a password or passkey, acting as a "second factor" that increases your confidence that the person signing in is the actual account holder. To break into an account, an attacker would need to not only compromise the account holder's password or passkey, but also steal their physical hardware key, which is tough to do when the attacker is actually located in another part of the world.
 
@@ -236,9 +238,27 @@ HTTP also defines another header named `Authorization` that is intended to carry
 
 This avoids the CSRF vulnerability of cookies when your API can be used by any origin, but it introduces a different vulnerability. You can store the session token in the browser's local storage, which is segmented and protected by origin, but if an attacker can _inject_ code into one of the legitimate web clients, that code would run under the same origin and could thus steal session tokens from local storage.
 
-This form of attack is called [Cross-Site Scripting (XSS)](https://owasp.org/www-community/attacks/xss/) and it's easy to pull of if just one of the legitimate web clients displays user-generated content and doesn't properly sanitize it. For example, if an attacker can submit a comment containing JavaScript, and if the site renders that to HTML without sanitizing it, that JavaScript will run within the same origin as the web app, and can then steal things from local storage.
+This form of attack is called [Cross-Site Scripting (XSS)](https://owasp.org/www-community/attacks/xss/) and it's easy to pull of if just one of the legitimate web clients displays user-generated content and doesn't properly sanitize it. For example, if an attacker can submit a comment containing JavaScript, and if the site renders that to HTML without sanitizing it, that JavaScript will run within the same origin as the web app, and can then steal things from that origin's part of local storage.
 
-Thankfully modern client-side web application frameworks like React do sanitizing automatically, and one must explicitly bypass it to do otherwise. This reduces the risk of XSS attacks, as most web applications these days are built using such frameworks.
+Thankfully modern client-side web application frameworks like React do sanitizing automatically, and one must [explicitly bypass it](https://react.dev/reference/react-dom/components/common#dangerously-setting-the-inner-html) to do otherwise. This significantly reduces the risk of XSS attacks, as most web applications these days are built using such frameworks.
+
+### Multi-Level Authentication
+
+If you are building an API that can be used by any origin, and you can't count on your web clients using these modern frameworks, you can use a technique called **multi-level authentication** to reduce the damage an attacker could do with a session token stolen from local storage. 
+
+With this approach, the session token in local storage only grants authorization to relatively insensitive resources---for example, you can maybe read content posted by friends, but you can't interact with billing details or change account configuration. This session associated with this token can have an expiration far in the future, and that expiration can even be extended each time the token is used on the server.
+
+To access more sensitive resources, the client must authenticate again to gain a higher-level session token that expires very quickly. This higher-level token is only kept in the client's volatile memory and is never written to local storage.
+
+If an attacker is able to pull off an XSS attack, they might be able to use the token in local storage to access relatively insensitive resources, but they can't access the more sensitive ones because that higher-level token was never written to local storage.
+
+## Session Expiration and Revocation
+
+I mentioned earlier that the session records written to your database should have an expiration time so that the tokens associated with them have a bounded lifetime. When your API servers receive a valid session token and attempt to load the associated session record, you can simply apply a `WHERE` clause to the query to filter out sessions that have already expired. If you don't find the record, the session either doesn't exist or has expired. In either case, you should return a `401 Unauthorized` error.
+
+But in some cases you may want sessions to expire only after a period of _inactivity_. For example, you might want the session to stay active as long as the client keeps making requests, but expire an hour after the last request you received. In these cases, simply update the session record each time it is loaded with a new expiration time set to one hour from now.
+
+Lastly, when a user signs out, or when you need to forcibly end all sessions for an account that has been compromised, either delete the session records altogether, or update the expiration time to now (or to be safe, a few minutes before now, to accommodate some clock skew between your API servers). Updating the expiration and keeping the records around allows you to do forensic and usage analytics in the future, but you will naturally pay for the extra data storage.
 
 ## Other Kinds of Authorization Tokens
 
@@ -261,4 +281,4 @@ Other examples of authorization tokens include:
 Since these kinds of authorization tokens are really the same thing as session tokens, you can use the same code to generate and verify them!
 
 > [!NOTE]
-> Many thanks to my friend Clinton Campbell, founder of [Quirktree](https://www.quirktree.com/), for patiently explaining security concepts and techniques to me over the years, and reviewing drafts of these tutorials.
+> 🍺 Many thanks to my friend Clinton Campbell, founder of [Quirktree](https://www.quirktree.com/), for patiently explaining security concepts and techniques to me over the years, and reviewing drafts of these tutorials.
