@@ -218,7 +218,7 @@ Now that you have a session token, the remaining question is how should we trans
 
 Using cookies is a tradeoff: they are automatically handled so your client code doesn't need to do anything to support them, but because they are automatically sent, they can be abused by cross-site scripting in web pages, especially if your API can be used by any origin. For example, if one of your account holders has previously signed in, and is then tricked into loading a page from `evil.com`, that page can make JavaScript `fetch()` requests to your server's API, and the browser will automatically send along any cookies it has for your server's origin, including your authenticated session token! That code will also be able to read all responses, and forward them back to `evil.com`.
 
-You can stop this behavior by setting `SameSite=Strict` on the cookie, which will cause the browser to send that cookie only when the JavaScript making the request came from the same site as your API. But this is only appropriate if your API is only be used by web applications served from the same origin. If you intend for your API to be callable by web applications served from _any_ origin, this setting will block cookies for those legitimate sites as well. In these cases, returning [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS) headers from your server with specific origins you allow might be a better choice.
+You can stop this behavior by setting `SameSite=Strict` on the cookie, which will cause the browser to send that cookie only when the JavaScript making the request came from the same site as your API. But this is only appropriate if your API is only be used by web applications served from the same origin. If you intend for your API to be callable by web applications served from _any_ origin, this setting will block cookies for those legitimate sites as well.
 
 Note that this only applies to web applications running with a web browser. Native mobile applications are isolated and don't typically download and execute JavaScript from random origins. The HTTP library used by your native mobile app will likely handle cookies automatically (though you may need to explicitly enable this), and no other code running on the same device can get access to the stored cookies.
 
@@ -232,7 +232,7 @@ The best solution depends on what sort of client applications you want to suppor
 
 - If you only support native mobile apps, use cookies with Secure, HttpOnly, and SameSite=Strict. 
 - If you only support web apps served from the same origin as your API, use cookies with Secure, HttpOnly, and SameSite=Strict.
-- If you only support web apps served from a specific set of origins that are different from your API origin, use cookies with Secure and HttpOnly. Also return CORS headers that allow requests only those specific origins.
+- If you only support web apps served from a specific set of origins that are different from your API origin, use cookies with Secure and HttpOnly. Also check the `Origin` request header to ensure it matches one of your allowed origins.
 - If you want to support web apps from _any_ origin, the Authorization header might be safer, but apps will need to ensure they properly filter user-supplied content when rendering it into HTML.
 
 
