@@ -7,5 +7,5 @@
 - [Hypertext Transfer Protocol (HTTP)](http.md)
 - [Intro to Cryptography](crypto.md)
 - [Identifiers](ids.md)
-- [Authentication](authentication.md)
+- [Authenticated Sessions](authentication.md)
 - [API Servers](api-servers.md)
