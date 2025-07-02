@@ -215,44 +215,40 @@ Note that we use `compare_digest()` here and not a simple `==` comparison. The f
 
 ## Session Token Transmission
 
-Now that you have a session token, the remaining question is how should we transmit it in the HTTP response to the client, and how should the client send it back in subsequent HTTP requests? There are two primary options:
+Now that you have a session token, the remaining question is how should we transmit it in the HTTP response to the client, and how should the client send it back in subsequent HTTP requests? 
 
-- **Secure HttpOnly Cookie:** automatic, easy, delicious, and secure when your API used only by your own client applications, or a well-known set of origins.
-- **Authorization Header:** manual, but may be more secure when your API can be used by web applications served from _any_ origin.
+Your best bet these days (2025) is a Secure HttpOnly Cookie. Besides being delicious, cookies are an automatic mechanism already supported by HTTP, web browsers, HTTP libraries, and API server frameworks. Any cookie set in an HTTP response will be stored by the web browser or HTTP library, and automatically sent back in subsequent requests to the same origin.
 
-### Cookies
+In recent years cookies also gained a few important options that finally made them suitable for authenticated session tokens with web-based clients:
 
-HTTP already has a built-in mechanism for values that should be sent back and forth between clients and [origins](http.md#origin), known as 'cookies'. Browsers and most HTTP libraries used by mobile applications will handle these automatically (though you may need to explicitly enable this in some HTTP libraries). If an origin includes a `Set-Cookie` header in a response, the browser/library will save that cookie value and send it again in all subsequent requests to the same origin. This mechanism is perfect when your API is used only by your own client applications, or a set of web applications served from well-known origins. 
-
-When setting cookies, servers can specify a set of options that control how the browser/library treats that cookie during subsequent requests. The most import ones for authenticated sessions are:
-
-- **HttpOnly:** If set, the cookie can't be accessed by client-side JavaScript running in a browser. This protects your session tokens from [Cross-Site Scripting (XSS)](https://owasp.org/www-community/attacks/xss/) attacks that try to steal valid tokens from signed-in users.
+- **HttpOnly:** If set, the cookie can't be accessed by client-side JavaScript running in a browser. This protects your session tokens from [Cross-Site Scripting (XSS)](https://owasp.org/www-community/attacks/xss/) attacks.
 - **Secure:** If set, the browser/library will send the cookie only when making requests over encrypted HTTPS, not unencrypted HTTP. This protects your session tokens from being intercepted by attackers sitting between clients and your servers.
-- **SameSite=[Strict|Lax|None]:** If your API is used only by a web client served from the same origin as your API, set `SameSite=Strict`. This causes the browser to send the cookie only when the current page came from the same origin as the original response cookie containing the session token.
 
-If your API can be used from web applications served from multiple origins, but that set is constrained and well-known, you can't set `SameSite=Strict`, but you can check the `Origin` header received by your API servers against your allowed list of origins. If it's not in the set, you should ignore the session token cookie and assume the request is unauthenticated.
+If your API can only be used by your own web client served from the same origin as your API, you can also add **SameSite=Strict**. This causes the browser to send this cookie only when the web client is making `fetch()` requests to the same origin from which the current web page was served. This effectively eliminates [Cross-Site Request Forgery (CSRF)](https://owasp.org/www-community/attacks/csrf) attacks.
 
-But if your API can be used from web applications served from _any_ origin, cookies become vulnerable to [Cross-Site Request Forgery (CSRF)](https://owasp.org/www-community/attacks/csrf) attacks. For example, if an account holder is signed-in to your API, and is then tricked into loading a page from `evil.com`, the JavaScript in that page can make `fetch()` requests to your API, and the browser will happily send the session token cookie along, making the request look authenticated. The `Origin` header will be `evil.com` but if your API is designed to be used by _any origin_ you can't deny the request. In this case, it might be better to consider a different approach:
+But if your API can be used by web clients served from multiple, or even _any_ origin, you can't use `SameSite=Strict`, as that would block cookie sending for clients served from other origins. You can, however, use another technique to prevent CSRF attacks.
 
-### Authorization Header
+When JavaScript in a web page makes `fetch()` request to another origin, the browser automatically includes an `Origin` header set to the origin from which the current page was loaded. The JavaScript can't override this value, nor suppress it, so you can use it as security input.
 
-HTTP also defines another header named `Authorization` that is intended to carry authorization tokens, but it is entirely manual. Browsers and HTTP client libraries will parse it and make it available to client code, but won't store it nor automatically send it back to the same origin. Instead, your client code must extract the token from this response header, store it, and manually add it as the `Authorization` header in each subsequent `fetch()` request.
+If your API can be used by web clients that come from a known set of origins, you can use this `Origin` header to determine if the request is coming from one of the allowed web clients, or another nefarious site. For example, if an account holder is signed in, and then tricked to go to a page on `evil.com` that page could try to do a `fetch()` request to your API and the browser will happily send along the cookies associated with your API's origin. But on the server-side, you will see that the `Origin` is `evil.com`, which is not one of your allowed origins, so you can reject the request with a `401 Unauthorized`.
 
-This avoids the CSRF vulnerability of cookies when your API can be used by any origin, but it introduces a different vulnerability. You can store the session token in the browser's local storage, which is segmented and protected by origin, but if an attacker can _inject_ code into one of the legitimate web clients, that code would run under the same origin and could thus steal session tokens from local storage.
+You can also use the cookie _name_ to keep session tokens for one client origin separate from the others. Each server origin can set multiple cookies with different names. When there is a `fetch()` request back to that server origin, the browser will include all cookies associated with that origin, and set the `Origin` header as described earlier.
 
-This form of attack is called [Cross-Site Scripting (XSS)](https://owasp.org/www-community/attacks/xss/) and it's easy to pull of if one of your legitimate web clients displays user-generated content that isn't properly sanitized. For example, if an attacker can submit a comment containing JavaScript, and if the site renders that to HTML without sanitizing it, that JavaScript will run within the same origin as the web app, and can then steal things from that origin's part of local storage.
+After sign-in, when your server sets the session token cookie, it can assign that cookie a name that uses a sanitized version of the `Origin` as a prefix. Origins can contain characters that aren't allowed in cookie names, so you must sanitize the value if you use it as a name prefix. The easiest and most reliable way to do that is to [hash](crypto.md#cryptographic-hashing) the Origin and encode the hash into a safe alphabet like Base-16 (Hex, 0-9, A-F) or Base-36 (0-9, A-Z).
 
-Thankfully modern client-side web application frameworks like React do sanitizing automatically, and one must [explicitly bypass it](https://react.dev/reference/react-dom/components/common#dangerously-setting-the-inner-html) to do otherwise. This significantly reduces the risk of XSS attacks, as most web applications these days are built using such frameworks.
+This keeps the authenticated session cookie for origin A separate from origin B and C. During a subsequent request, your API will get _all_ of these cookies, but you can use the `Origin` header to determine _which_ cookie to pay attention to. And you can still validate the `Origin` against the list of allowed web client origins.
+
+Even APIs that support web clients from _any_ origin still typically require client developers to register their origin with the API before use. This allows the API to check the `Origin` header against the registered set of origins, and use the origin (or an ID associated with that origin in the database) as a prefix for the cookie name.
+
+Note that if your API is used by a native mobile app, or a script running at the command line, or another API server, none of this `Origin` business matters. Each of those clients are already running separately with their own segmented runtime environments. Their cookie databases are totally separate from one another, and they don't download and run random untrusted JavaScript (at least we hope not). It's only when your API can be used from multiple web-based clients that you need to pay attention to the `Origin` header and manage your cookies accordingly.
 
 ### Multi-Level Authentication
 
-If you are building an API that can be used by any origin, and you can't count on your web clients using these modern frameworks, you can use a technique called **multi-level authentication** to reduce the damage an attacker could do with a session token stolen from local storage. 
+If your API manages resources that are particularly sensitive, like payment card details or highly-personal information, you may want to also use a technique called **multi-level authentication**. This reduces the damage an attacker can do if they somehow managed to get access to an account holder's valid session token.
 
-With this approach, the session token in local storage only grants authorization to relatively insensitive resources---for example, you can maybe read content posted by friends, but you can't interact with billing details or change account configuration. The session associated with this token can be fairly long-lived (expires far in the future).
+With this approach, the initial session token in the browser's cookie jar only grants authorization to relatively insensitive resources---for example, you can maybe read content posted by friends, but you can't interact with billing details or change account configuration. The session associated with this token can be fairly long-lived (expires far in the future).
 
-To access more sensitive resources, the client must authenticate again to gain a higher-level session token that expires very quickly. This higher-level token is only kept in the client's volatile memory and is never written to local storage.
-
-If an attacker is able to pull off an XSS attack, they might be able to use the token in local storage to access relatively insensitive resources, but they can't access the more sensitive ones because that higher-level token was never written to local storage.
+To access more sensitive resources, the client must authenticate again to gain a higher-level session token associated with a session that expires very quickly. This higher-level token is returned as a different cookie with no `Max-Age` setting so that it is never persisted, and disappears as soon as the web client unloads.
 
 ## Session Expiration and Revocation
 
@@ -284,4 +280,4 @@ Other examples of authorization tokens include:
 Since these kinds of authorization tokens are really the same thing as session tokens, you can use the same code to generate and verify them!
 
 > [!NOTE]
-> 🍺 Many thanks to my friend Clinton Campbell, founder of [Quirktree](https://www.quirktree.com/), for patiently explaining security concepts and techniques to me over the years, and reviewing drafts of these tutorials.
+> 🍻 Many thanks to my friend Clinton Campbell, founder of [Quirktree](https://www.quirktree.com/), for patiently explaining security concepts and techniques to me over the years, and reviewing drafts of these tutorials.
