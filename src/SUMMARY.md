@@ -9,3 +9,4 @@
 - [Identifiers](ids.md)
 - [Authenticated Sessions](authentication.md)
 - [API Servers](api-servers.md)
+- [API Design](api-design.md)
