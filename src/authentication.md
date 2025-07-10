@@ -226,7 +226,7 @@ In recent years cookies also gained a few important options that finally made th
 
 If your API can only be used by your own web client served from the same origin as your API, you can also add **SameSite=Strict**. This causes the browser to send this cookie only when the web client is making `fetch()` requests to the same origin from which the current web page was served. This effectively eliminates [Cross-Site Request Forgery (CSRF)](https://owasp.org/www-community/attacks/csrf) attacks.
 
-But if your API can be used by web clients served from multiple, or even _any_ origin, you can't use `SameSite=Strict`, as that would block cookie sending for clients served from other origins. You can, however, use another technique to prevent CSRF attacks.
+But if your API supports [CORS](cors.md) so that it can be used by web clients served from multiple, or even _any_ origin, you can't use `SameSite=Strict`, as that would block cookie sending for clients served from other origins. You can, however, use another technique to prevent CSRF attacks.
 
 When JavaScript in a web page makes `fetch()` requests to another origin, the browser automatically includes an `Origin` header set to the origin from which the current page was loaded. The JavaScript can't override this value, nor suppress it, so you can use it as security input.
 
