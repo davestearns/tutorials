@@ -4,6 +4,7 @@
 
 - [Introduction](index.md)
 - [System Building Blocks](building-blocks.md)
+- [Trade-Offs & Trapdoors](tradeoffs.md)
 - [HTTP](http.md)
 - [Intro to Cryptography](crypto.md)
 - [Identifiers](ids.md)
