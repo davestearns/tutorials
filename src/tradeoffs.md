@@ -46,13 +46,14 @@ Which of these qualities you optimize for will depend greatly on your context:
 - **Critical-Path Component:** If you are building a system component that needs to be very efficient and high performance (e.g., data storage service), you should obviously optimize for those qualities over others like developer velocity.
 - **Open-Source Project:** If you are starting a new open-source project, you might want to optimize for available labor pool and legibility instead, so that you can attract and retain contributors.
 
-Choosing a programming language is likely going to be your first big trapdoor decision. Once you write a bunch of code, it becomes very costly and time-consuming to rewrite it in another language (though AI might make some of this more tractable). But there are a few techniques you can use to constrain the effects of your choice and make it easier to change languages over time:
+Choosing a programming language is likely going to be your first big trapdoor decision. Once you write a bunch of code, it becomes very costly and time-consuming to rewrite it in another language (though AI might make some of this more tractable). But there are a few techniques you can use to constrain the effects of your choice and make it easier to incorporate other languages over time:
 
-- **Service-Oriented Architecture:** Instead of putting all your logic into one large monolith server, you can break it up into multiple servers that talk to each other, either across process boundaries or the network. The most extreme version of this is known as **microservices**, where your system is comprised of hundreds or thousands of small servers spread out across a network, but this approach typically leads to a whole different set of problems that require sophisticated infrastructure that is beyond all but the largest of organizations. But you can avoid most of these simply by running multiple servers on the same machine, and communicating across process boundaries using something like named pipes.
-- 
-
-
+- **Separate System Components:** Your API servers, message consumers, and periodic jobs will naturally be separate executables, so they _can_ be implemented in different languages. Early on you will likely want to use the same language for all of them, just to reduce the cognitive load, but if you decide to change languages in the future, you can rewrite the components one at a time, as they naturally don't care what language the other components are written in.
+- **Serverless Functions:** If it makes sense to build your system with so-called "serverless" functions, those are also separate components that can be ported to a new language incrementally. API gateways and other functions call them via network requests, so you can change the implementation language over time without having to rewrite the callers as well.
+- **Segmented API Servers:** If you decide to rewrite your API server in a different language, you can do so incrementally by segmenting it into multiple servers behind an [API gateway](building-blocks.md). Taken to an extreme, this approach is known as **microservices** and it can [introduce more problems than it solves](https://www.shopify.com/enterprise/blog/disadvantages-microservices#4), but you don't have to be so extreme. Assuming you are just changing languages, and don't need to scale them differently, the segmented servers can still all run on the same machine, and communicate with each other over an efficient local inter-process channel such as [Unix domain sockets](https://en.wikipedia.org/wiki/Unix_domain_socket).
 
 ## Choosing Runtime Infrastructure
+
+
 
 ## Choosing Databases
