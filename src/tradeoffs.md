@@ -44,11 +44,11 @@ Which of these qualities you optimize for will probably depend on your particula
 
 If you just want some general advice, I generally follow these rules:
 
-- **Favor statically-typed languages:** The benefits of static typing far outweighs the minor inconvenience of declaring method argument and return types (most languages automatically work out the types of local variables and constants). Code bases without declared types are fragile and hard to read. The hundreds of engineers you hire after you startup is successful will thank you.
+- **Favor statically-typed languages:** The benefits of static typing far outweighs the minor inconvenience of declaring method argument and return types (most languages automatically work out the types of local variables and constants). Code bases without declared types are fragile and hard to read.
 - **Use async I/O when I/O-bound:** If your API servers spend most of their time talking to databases and other servers, use a language, framework, and libraries that all have solid support for async I/O. This will improve performance and allow you to scale with less operational cost. But beware of languages where async I/O was recently bolted-on, as most frameworks and libraries won't support it yet.
 - **Avoid trendy but unproven languages/frameworks:** What works in a proof-of-concept may not work in production at scale. Choose languages and frameworks that have a proven track record.
 
-When I build I/O-bound API servers or message queue consumers, I generally prefer Go or TypeScript on Node. Rust is very performant and efficient, and has a fabulous tool chain, but it's difficult to learn so it's harder to find other engineers who can be productive in it quickly. Java or Kotlin are also fine choices if you use a framework with good async I/O support (e.g., Reactor or Spring WebFlux). The same could be said for Python if you require the use of type hints.
+When I build I/O-bound API servers or message queue consumers, I generally prefer Go or TypeScript on Node. Rust is very performant and efficient, and has a fabulous tool chain, but it's difficult to learn so it's harder to find other engineers who can be productive in it quickly. Java or Kotlin are also fine choices if you use a framework with good async I/O support (e.g., Reactor or Spring WebFlux). The same could be said for Python if you require the use of async I/O and type hints.
 
 Regardless of which languages you choose, this decision will likely be a trapdoor one. Once you write a bunch of code, it becomes very costly and time-consuming to rewrite it in another language (though AI might make some of this more tractable). But there are a few techniques you can use to mitigate the costs of changing languages in the future:
 
