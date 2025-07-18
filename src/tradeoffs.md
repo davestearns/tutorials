@@ -72,6 +72,10 @@ The auto-scaling relational solutions like Spanner or AWS Aurora Serverless also
 
 If you need those relational features, then that determines the last trade-off as well: schema will be defined in the database and migrations will typically be done by executing Data Definition Language (DDL) scripts. But if you don't need relational features, you can define your schema and implement migration logic in your application code instead.
 
+Although choosing a database is a trapdoor decision, you can make it easier to change databases in the future by using a [layered internal architecture](api-servers.md#internal-architecture) that isolates your database-specific code in the persistence layer. If you change databases, you only need to rewrite that layer---all the layers above shouldn't have to change.
+
+Moving the existing production data to your new database can be more challenging. If you can afford a small bit of downtime, you can shut down your API servers, copy the data to the new database, and deploy the new version of your API servers pointed at the new database. But if you can't afford downtime, you can do dual-writes while you cut over to the new database---that is, you send inserts and updates to both the new and old databases to keep them in-sync while you shift which database is the source of truth. Once the cut-over is complete, you stop writing to the old database and only write to the new one.
+
 # Conclusion
 
 Every decision in software engineering is a trade-off that optimizes for some things at the cost of other things. Some of those decisions can be easily reversed in the future, but some are more like trapdoors that become prohibitively expensive to change after a short period of time.
