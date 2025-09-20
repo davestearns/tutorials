@@ -235,9 +235,11 @@ In recent years cookies also gained a few important options that finally made th
 
 - **HttpOnly:** The cookie can't be accessed by client-side JavaScript running in a browser. This protects your session tokens from [Cross-Site Scripting (XSS)](https://owasp.org/www-community/attacks/xss/) attacks.
 - **Secure:** The browser/library will send the cookie only when making requests over encrypted HTTPS, not unencrypted HTTP. This protects your session tokens from being intercepted by attackers sitting between clients and your servers.
-- **SameSite=Strict:** The cookie is sent by the browser only when the current page was loaded from the same [origin](http.md#origin) as the API being called. This effectively eliminates [Cross-Site Request Forgery (CSRF)](https://owasp.org/www-community/attacks/csrf) attacks.
+- **SameSite=Strict:** The cookie is sent by the browser only when the current page was loaded from the same site as the API being called. This effectively eliminates [Cross-Site Request Forgery (CSRF)](https://owasp.org/www-community/attacks/csrf) attacks.
 
-But if your API is designed to be used by web clients service from other origins, you can't use `SameSite=Strict`. For example, if your API's origin is `api.example.com` but the web client that calls it is served from `example.com`, or `someothersite.com` the `SameSite=Strict` option will block the browser from sending the session cookie to your API. In these cases, there are two other techniques you can use to protect against CSRF attacks.
+The definition of 'site' in `SameSite=Strict` is subtly different than 'origin'. A site is defined as the protocol (or scheme) plus the domain, but not the sub-domain(s). So `https://example.com` and `https://api.example.com` are considered the same site with respect to cookie behavior, but not the same origin with respect to [CORS](cors.md). This allows you to host your API on a subdomain but still use `SameSite=Strict` to protect against CSRF attacks.
+
+But if your API is designed to be used by web clients service from other sites, you can't use `SameSite=Strict`. For example, if your API's origin is `api.example.com` but the web client that calls it is served from `someothersite.com` the `SameSite=Strict` option will block the browser from sending the session cookie to your API. In these cases, there are two other techniques you can use to protect against CSRF attacks.
 
 ### Origin Header
 
