@@ -255,6 +255,9 @@ Clients must manually check for this header in all `fetch()` responses, hold on 
 
 The CSRF token value should be different for each session, and can rotate more often than the session token if needed. Because the CSRF token is handled manually and never persisted, a nefarious site can't know what it should be, and thus can't provide it in `fetch()` requests, even though the browser automatically sends the session token cookie. This effectively blocks CSRF-style attacks, though it obviously requires more work for both the server and web client.
 
+The obvious downside of CSRF tokens like these is that sessions effectively expire when the browser tab is closed. Since the token is never persisted, it disappears when the tab is closed, and when the legitimate web client is reloaded, it has no idea what value it should pass. The client must instead make the account holder re-authenticate in order to get a valid CSRF token.
+
+Because CSRF tokens are handled manually in JavaScript, they are also susceptible to [Cross-Site Scripting (XSS) attacks](https://owasp.org/www-community/attacks/xss/). If your web client render content supplied by users (e.g., most any social media site), and if accidentally renders that content as interpreted HTML instead of plain text, an attacker can inject script that runs within the web client of another innocent user. That script will be able to read the current CSRF token and send it in a `fetch()` request. Popular web frameworks like React automatically do this content escaping, but if you are using a more obscure framework, or just raw JavaScript, you must ensure that all user-supplied content is properly rendered as plain text (e.g., set the `innerText` attribute instead of `innerHTML`).
 
 ## Multi-Level Authentication
 
